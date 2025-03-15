@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { useQuiz } from '@/hooks/useQuiz';
 import { cn } from '@/lib/utils';
+import { Quiz as QuizType } from '@/types/quiz';
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,8 +23,26 @@ const Quiz = () => {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quiz, setQuiz] = useState<QuizType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const quiz = getQuiz(id || '');
+  // Fetch quiz data
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      if (!id) return;
+      try {
+        const quizData = await getQuiz(id);
+        setQuiz(quizData);
+      } catch (error) {
+        console.error('Error fetching quiz:', error);
+        toast.error('Failed to load quiz');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchQuiz();
+  }, [id, getQuiz]);
   
   useEffect(() => {
     if (!quiz) return;
@@ -42,6 +61,14 @@ const Quiz = () => {
     
     return () => clearInterval(timer);
   }, [quiz]);
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading quiz...</p>
+      </div>
+    );
+  }
   
   if (!quiz) {
     return (

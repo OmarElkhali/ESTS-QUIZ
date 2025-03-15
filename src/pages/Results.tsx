@@ -11,6 +11,7 @@ import { Navbar } from '@/components/Navbar';
 import { useQuiz } from '@/hooks/useQuiz';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Quiz as QuizType } from '@/types/quiz';
 
 const ScoreGauge = ({ score }: { score: number }) => {
   const [animatedScore, setAnimatedScore] = useState(0);
@@ -65,10 +66,37 @@ const Results = () => {
   const navigate = useNavigate();
   const { getQuiz, shareQuiz } = useQuiz();
   
-  const quiz = getQuiz(id || '');
+  const [quiz, setQuiz] = useState<QuizType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const score = location.state?.score || 85; // Fallback score if not provided
   
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState<number | null>(null);
+  
+  // Fetch quiz data
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      if (!id) return;
+      try {
+        const quizData = await getQuiz(id);
+        setQuiz(quizData);
+      } catch (error) {
+        console.error('Error fetching quiz:', error);
+        toast.error('Failed to load quiz results');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchQuiz();
+  }, [id, getQuiz]);
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading results...</p>
+      </div>
+    );
+  }
   
   if (!quiz) {
     return (
@@ -80,10 +108,14 @@ const Results = () => {
   
   const handleShare = async () => {
     try {
-      const shareLink = await shareQuiz(quiz.id);
+      if (!id) return;
+      // Fix: Pass email as the second parameter (using a dummy email for now)
+      await shareQuiz(id, "share@example.com");
+      toast.success('Quiz shared successfully');
       
+      // Copy link to clipboard
       if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareLink);
+        await navigator.clipboard.writeText(window.location.href);
         toast.success('Share link copied to clipboard');
       }
     } catch (error) {

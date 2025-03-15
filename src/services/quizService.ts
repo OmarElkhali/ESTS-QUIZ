@@ -49,10 +49,10 @@ export const generateQuizFromText = async (
     id: `q${i + 1}`,
     text: `Question simulée ${i + 1} basée sur le contenu fourni`,
     options: [
-      { id: 'a', text: 'Option A', isCorrect: Math.random() < 0.25 },
-      { id: 'b', text: 'Option B', isCorrect: Math.random() < 0.25 && !Math.random() < 0.25 },
-      { id: 'c', text: 'Option C', isCorrect: Math.random() < 0.25 && !Math.random() < 0.25 && !Math.random() < 0.25 },
-      { id: 'd', text: 'Option D', isCorrect: !Math.random() < 0.25 && !Math.random() < 0.25 && !Math.random() < 0.25 },
+      { id: 'a', text: 'Option A', isCorrect: i % 4 === 0 },
+      { id: 'b', text: 'Option B', isCorrect: i % 4 === 1 },
+      { id: 'c', text: 'Option C', isCorrect: i % 4 === 2 },
+      { id: 'd', text: 'Option D', isCorrect: i % 4 === 3 },
     ],
     explanation: 'Explication générée pour cette question (simulée).',
   }));
