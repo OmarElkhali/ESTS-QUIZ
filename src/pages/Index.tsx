@@ -1,13 +1,18 @@
+
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { QuizForm } from '@/components/QuizForm';
 import { QuizCard } from '@/components/QuizCard';
+import { SharedQuizzes } from '@/components/SharedQuizzes';
 import { Separator } from '@/components/ui/separator';
 import { useQuiz } from '@/hooks/useQuiz';
+import { useAuth } from '@/context/AuthContext';
 
 const Index = () => {
   const { quizzes } = useQuiz();
-  const recentQuizzes = quizzes.slice(0, 3); // Take just the most recent quizzes
+  const { user } = useAuth();
+  
+  const recentQuizzes = quizzes.slice(0, 3); // Prendre les quiz les plus récents
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -19,9 +24,9 @@ const Index = () => {
         <section className="py-16 px-6 bg-muted/30">
           <div className="container mx-auto max-w-6xl">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Generate Your Quiz</h2>
+              <h2 className="text-3xl font-bold mb-4">Générer votre Quiz</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Upload your course materials, set the number of questions, and let our AI create a personalized quiz
+                Téléchargez vos documents, définissez le nombre de questions, et laissez notre IA créer un quiz personnalisé
               </p>
             </div>
             
@@ -29,16 +34,16 @@ const Index = () => {
           </div>
         </section>
         
-        {recentQuizzes.length > 0 && (
+        {user && recentQuizzes.length > 0 && (
           <section className="py-16 px-6">
             <div className="container mx-auto max-w-6xl">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-bold">Recent Quizzes</h2>
+                <h2 className="text-2xl font-bold">Quizzes Récents</h2>
                 <a 
                   href="/history" 
                   className="text-primary font-medium underline-animation"
                 >
-                  View all
+                  Voir tout
                 </a>
               </div>
               
@@ -55,6 +60,7 @@ const Index = () => {
                     duration={quiz.duration}
                     participants={quiz.participants}
                     isHistory={true}
+                    isShared={quiz.isShared}
                     index={index}
                   />
                 ))}
@@ -62,6 +68,8 @@ const Index = () => {
             </div>
           </section>
         )}
+        
+        {user && <SharedQuizzes />}
       </main>
       
       <footer className="bg-muted/30 py-8 px-6 border-t">
@@ -70,16 +78,16 @@ const Index = () => {
             <div className="mb-4 md:mb-0">
               <h3 className="text-xl font-bold">QuizFlick</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                AI-Powered Learning Made Simple
+                Apprentissage optimisé par l'IA
               </p>
             </div>
             
             <div className="flex space-x-6">
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground underline-animation">
-                Privacy Policy
+                Politique de confidentialité
               </a>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground underline-animation">
-                Terms of Service
+                Conditions d'utilisation
               </a>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground underline-animation">
                 Contact
@@ -90,7 +98,7 @@ const Index = () => {
           <Separator className="my-6" />
           
           <p className="text-xs text-muted-foreground text-center">
-            © 2023 QuizFlick. All rights reserved.
+            © 2023 QuizFlick. Tous droits réservés.
           </p>
         </div>
       </footer>

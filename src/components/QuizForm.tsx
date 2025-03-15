@@ -7,42 +7,45 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { FileUpload } from './FileUpload';
 import { toast } from 'sonner';
-import { BrainCircuit, Share2, ArrowRight } from 'lucide-react';
+import { BrainCircuit, Share2, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useQuiz } from '@/hooks/useQuiz';
+import { useAuth } from '@/context/AuthContext';
 
 export const QuizForm = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const { createQuiz, isLoading } = useQuiz();
+  const { user } = useAuth();
+  
   const [file, setFile] = useState<File | null>(null);
   const [numQuestions, setNumQuestions] = useState(10);
   const [additionalInfo, setAdditionalInfo] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   
   const handleFileSelect = (file: File) => {
     setFile(file);
-    toast.success('File uploaded successfully');
+    toast.success('Fichier téléchargé avec succès');
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file) {
-      toast.error('Please upload a course material file');
+    if (!user) {
+      toast.error('Veuillez vous connecter pour créer un quiz');
       return;
     }
     
-    setIsGenerating(true);
+    if (!file) {
+      toast.error('Veuillez télécharger un fichier de cours');
+      return;
+    }
     
     try {
-      // Simulate AI processing
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      toast.success(`Generated ${numQuestions} questions from your materials`);
-      navigate('/quiz');
+      const quizId = await createQuiz(file, numQuestions, additionalInfo);
+      toast.success(`${numQuestions} questions générées à partir de vos documents!`);
+      navigate(`/quiz/${quizId}`);
     } catch (error) {
-      toast.error('Failed to generate quiz');
-    } finally {
-      setIsGenerating(false);
+      // Error is handled in the quiz context
     }
   };
   
@@ -57,18 +60,18 @@ export const QuizForm = () => {
         <div className="p-2 rounded-full bg-primary/10">
           <BrainCircuit className="h-6 w-6 text-primary" />
         </div>
-        <h2 className="text-2xl font-bold">Create Your Quiz</h2>
+        <h2 className="text-2xl font-bold">Créer votre Quiz</h2>
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="file-upload">Upload Course Material</Label>
+          <Label htmlFor="file-upload">Télécharger votre document</Label>
           <FileUpload onFileSelect={handleFileSelect} />
         </div>
         
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <Label htmlFor="num-questions">Number of Questions</Label>
+            <Label htmlFor="num-questions">Nombre de questions</Label>
             <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
               {numQuestions}
             </span>
@@ -90,10 +93,10 @@ export const QuizForm = () => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="additional-info">Additional Information (Optional)</Label>
+          <Label htmlFor="additional-info">Informations supplémentaires (Optionnel)</Label>
           <Textarea
             id="additional-info"
-            placeholder="Add specific topics to focus on, preferred question styles, or any other details..."
+            placeholder="Ajoutez des sujets spécifiques à aborder, des styles de questions préférés, ou d'autres détails..."
             value={additionalInfo}
             onChange={(e) => setAdditionalInfo(e.target.value)}
             className="min-h-[100px] resize-none"
@@ -104,16 +107,16 @@ export const QuizForm = () => {
           <Button 
             type="submit" 
             className="w-full btn-shine"
-            disabled={isGenerating || !file}
+            disabled={isLoading || !file || !user}
           >
-            {isGenerating ? (
+            {isLoading ? (
               <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent"></div>
-                Generating Quiz...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Génération en cours...
               </>
             ) : (
               <>
-                Start Quiz
+                Commencer le Quiz
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
@@ -123,9 +126,11 @@ export const QuizForm = () => {
             type="button" 
             variant="outline" 
             className="w-full hover-scale"
+            disabled={!user}
+            onClick={() => navigate('/history')}
           >
             <Share2 className="mr-2 h-4 w-4" />
-            Share
+            Mes Quiz
           </Button>
         </div>
       </form>

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Mail, Key, Github } from 'lucide-react';
+import { Mail, Key, Github, User, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { motion } from 'framer-motion';
 
 interface AuthDialogProps {
   open: boolean;
@@ -13,44 +16,49 @@ interface AuthDialogProps {
 }
 
 export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
+  const { signIn, signUp, signInWithGoogle, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState('');
   
-  const handleEmailAuth = async (event: React.FormEvent) => {
+  const handleEmailSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
     
     if (!email || !password) {
-      toast.error('Please fill in all fields');
+      toast.error('Veuillez remplir tous les champs');
       return;
     }
     
-    setIsLoading(true);
-    
-    // Simulate authentication
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast.success('Signed in successfully!');
+      await signIn(email, password);
       onOpenChange(false);
     } catch (error) {
-      toast.error('Authentication failed');
-    } finally {
-      setIsLoading(false);
+      // Error is handled in the auth context
+    }
+  };
+  
+  const handleEmailSignUp = async (event: React.FormEvent) => {
+    event.preventDefault();
+    
+    if (!email || !password) {
+      toast.error('Veuillez remplir tous les champs');
+      return;
+    }
+    
+    try {
+      await signUp(email, password, name);
+      onOpenChange(false);
+    } catch (error) {
+      // Error is handled in the auth context
     }
   };
   
   const handleGoogleAuth = async () => {
-    setIsLoading(true);
-    
-    // Simulate authentication
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast.success('Signed in with Google successfully!');
+      await signInWithGoogle();
       onOpenChange(false);
     } catch (error) {
-      toast.error('Google authentication failed');
-    } finally {
-      setIsLoading(false);
+      // Error is handled in the auth context
     }
   };
   
@@ -58,21 +66,21 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card sm:max-w-md">
         <DialogHeader className="space-y-2">
-          <DialogTitle className="text-2xl">Welcome to QuizFlick</DialogTitle>
+          <DialogTitle className="text-2xl">Bienvenue à QuizFlick</DialogTitle>
           <DialogDescription>
-            Sign in to create and share AI-powered quizzes
+            Connectez-vous pour créer et partager des quiz générés par l'IA
           </DialogDescription>
         </DialogHeader>
         
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="signin">Connexion</TabsTrigger>
+            <TabsTrigger value="signup">Inscription</TabsTrigger>
           </TabsList>
           
           {/* Sign In Tab */}
           <TabsContent value="signin" className="space-y-4">
-            <form onSubmit={handleEmailAuth} className="space-y-4">
+            <form onSubmit={handleEmailSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -80,7 +88,7 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="vous@exemple.com"
                     className="pl-10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -90,7 +98,7 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Mot de passe</Label>
                 <div className="relative">
                   <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -110,7 +118,14 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
                 className="w-full btn-shine" 
                 disabled={isLoading}
               >
-                {isLoading ? 'Signing in...' : 'Sign In with Email'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connexion en cours...
+                  </>
+                ) : (
+                  'Se connecter avec email'
+                )}
               </Button>
             </form>
             
@@ -120,7 +135,7 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
+                  Ou continuer avec
                 </span>
               </div>
             </div>
@@ -132,13 +147,29 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               disabled={isLoading}
             >
               <Github className="mr-2 h-4 w-4" />
-              Github
+              Google
             </Button>
           </TabsContent>
           
           {/* Sign Up Tab */}
           <TabsContent value="signup" className="space-y-4">
-            <form onSubmit={handleEmailAuth} className="space-y-4">
+            <form onSubmit={handleEmailSignUp} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signup-name">Nom</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Votre nom"
+                    className="pl-10"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            
               <div className="space-y-2">
                 <Label htmlFor="signup-email">Email</Label>
                 <div className="relative">
@@ -146,7 +177,7 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="vous@exemple.com"
                     className="pl-10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -156,7 +187,7 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
+                <Label htmlFor="signup-password">Mot de passe</Label>
                 <div className="relative">
                   <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -176,7 +207,14 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
                 className="w-full btn-shine" 
                 disabled={isLoading}
               >
-                {isLoading ? 'Creating account...' : 'Create Account'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Création en cours...
+                  </>
+                ) : (
+                  'Créer un compte'
+                )}
               </Button>
             </form>
             
@@ -186,7 +224,7 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
+                  Ou continuer avec
                 </span>
               </div>
             </div>
@@ -198,13 +236,13 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               disabled={isLoading}
             >
               <Github className="mr-2 h-4 w-4" />
-              Github
+              Google
             </Button>
           </TabsContent>
         </Tabs>
         
         <DialogFooter className="text-xs text-muted-foreground">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
+          En continuant, vous acceptez nos conditions d'utilisation et notre politique de confidentialité.
         </DialogFooter>
       </DialogContent>
     </Dialog>

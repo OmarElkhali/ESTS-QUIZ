@@ -1,82 +1,139 @@
 
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
-import { mockQuizzes } from '@/data/mockQuizzes';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+import * as quizService from '@/services/quizService';
 
 export const QuizProvider = ({ children }: { children: ReactNode }) => {
-  const [quizzes, setQuizzes] = useState<Quiz[]>(mockQuizzes);
+  const { user } = useAuth();
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [sharedQuizzes, setSharedQuizzes] = useState<Quiz[]>([]);
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  const createQuiz = async (file: File, numQuestions: number, additionalInfo?: string): Promise<string> => {
-    setIsLoading(true);
+  // Fetch quizzes when user changes
+  useEffect(() => {
+    if (user) {
+      fetchQuizzes();
+    } else {
+      setQuizzes([]);
+      setSharedQuizzes([]);
+    }
+  }, [user]);
+  
+  const fetchQuizzes = async () => {
+    if (!user) return;
     
+    setIsLoading(true);
     try {
-      // Simulate quiz creation with AI
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      const userQuizzes = await quizService.getQuizzes(user.id);
+      setQuizzes(userQuizzes);
       
-      const newQuiz: Quiz = {
-        id: String(quizzes.length + 1),
-        title: file.name.split('.')[0],
-        description: additionalInfo || 'AI-generated quiz based on your materials.',
-        questions: Array.from({ length: numQuestions }).map((_, i) => ({
-          id: `q${i + 1}`,
-          text: `Sample question ${i + 1}`,
-          options: [
-            { id: 'a', text: 'Option A', isCorrect: false },
-            { id: 'b', text: 'Option B', isCorrect: true },
-            { id: 'c', text: 'Option C', isCorrect: false },
-            { id: 'd', text: 'Option D', isCorrect: false },
-          ],
-          explanation: 'This is a sample explanation for the correct answer.',
-        })),
-        createdAt: new Date().toISOString().split('T')[0],
-        duration: `${Math.round(numQuestions * 1.5)} min`,
-      };
-      
-      setQuizzes(prev => [newQuiz, ...prev]);
-      setCurrentQuiz(newQuiz);
-      
-      return newQuiz.id;
+      const shared = await quizService.getSharedQuizzes(user.id);
+      setSharedQuizzes(shared);
+    } catch (error) {
+      console.error('Error fetching quizzes:', error);
+      toast.error('Impossible de récupérer vos quiz');
     } finally {
       setIsLoading(false);
     }
   };
   
-  const getQuiz = (id: string): Quiz | null => {
-    const quiz = quizzes.find(q => q.id === id) || null;
-    setCurrentQuiz(quiz);
-    return quiz;
-  };
-  
-  const submitQuizAnswers = async (quizId: string, answers: Record<string, string>): Promise<number> => {
+  const createQuiz = async (file: File, numQuestions: number, additionalInfo?: string): Promise<string> => {
+    if (!user) {
+      toast.error('Veuillez vous connecter pour créer un quiz');
+      throw new Error('User not authenticated');
+    }
+    
     setIsLoading(true);
     
     try {
-      // Simulate submitting answers
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 1. Upload file to storage
+      const fileUrl = await quizService.uploadFile(file, user.id);
       
-      const quiz = quizzes.find(q => q.id === quizId);
+      // 2. Extract text from file
+      const text = await quizService.extractTextFromFile(fileUrl, file.type);
       
-      if (!quiz) {
-        throw new Error('Quiz not found');
+      // 3. Generate questions using AI (simulated)
+      const questions = await quizService.generateQuizFromText(
+        text,
+        numQuestions,
+        additionalInfo
+      );
+      
+      // 4. Save quiz to Firestore
+      const title = file.name.split('.')[0];
+      const description = additionalInfo || 'Quiz généré par IA basé sur vos documents.';
+      
+      const quizId = await quizService.createQuiz(
+        user.id,
+        title,
+        description,
+        questions
+      );
+      
+      // 5. Fetch the new quiz to get all fields
+      const newQuiz = await quizService.getQuiz(quizId);
+      
+      if (newQuiz) {
+        setQuizzes(prev => [newQuiz, ...prev]);
+        setCurrentQuiz(newQuiz);
       }
       
-      // Calculate score (randomly for demo)
-      const score = Math.floor(Math.random() * 101);
+      toast.success('Quiz créé avec succès');
+      return quizId;
+    } catch (error) {
+      console.error('Error creating quiz:', error);
+      toast.error('Impossible de créer le quiz');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const getQuiz = async (id: string): Promise<Quiz | null> => {
+    setIsLoading(true);
+    
+    try {
+      const quiz = await quizService.getQuiz(id);
+      setCurrentQuiz(quiz);
+      return quiz;
+    } catch (error) {
+      console.error('Error getting quiz:', error);
+      toast.error('Impossible de récupérer le quiz');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const submitQuizAnswers = async (quizId: string, answers: Record<string, string>): Promise<number> => {
+    if (!user) {
+      toast.error('Veuillez vous connecter pour soumettre vos réponses');
+      throw new Error('User not authenticated');
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const score = await quizService.submitQuizAnswers(quizId, user.id, answers);
       
-      // Update completion rate
-      const updatedQuizzes = quizzes.map(q => {
+      // Update the local state
+      setQuizzes(prev => prev.map(q => {
         if (q.id === quizId) {
           return { ...q, completionRate: 100 };
         }
         return q;
-      });
+      }));
       
-      setQuizzes(updatedQuizzes);
-      
+      toast.success('Réponses soumises avec succès');
       return score;
+    } catch (error) {
+      console.error('Error submitting answers:', error);
+      toast.error('Impossible de soumettre vos réponses');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -86,31 +143,73 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // Simulate deleting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await quizService.deleteQuiz(id);
       
+      // Update local state
       setQuizzes(prev => prev.filter(quiz => quiz.id !== id));
       
       if (currentQuiz?.id === id) {
         setCurrentQuiz(null);
       }
+      
+      toast.success('Quiz supprimé avec succès');
+    } catch (error) {
+      console.error('Error deleting quiz:', error);
+      toast.error('Impossible de supprimer le quiz');
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
   
-  const shareQuiz = async (id: string): Promise<string> => {
-    // Simulate sharing quiz and getting link
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  const shareQuiz = async (id: string, email: string): Promise<void> => {
+    setIsLoading(true);
     
-    const shareLink = `https://quizflick.app/shared-quiz/${id}`;
-    return shareLink;
+    try {
+      await quizService.shareQuiz(id, email);
+      
+      // Update local state
+      setQuizzes(prev => prev.map(q => {
+        if (q.id === id) {
+          return { ...q, isShared: true };
+        }
+        return q;
+      }));
+      
+      toast.success('Quiz partagé avec succès');
+    } catch (error) {
+      console.error('Error sharing quiz:', error);
+      toast.error('Impossible de partager le quiz');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const removeCollaborator = async (quizId: string, collaboratorId: string): Promise<void> => {
+    setIsLoading(true);
+    
+    try {
+      await quizService.removeCollaborator(quizId, collaboratorId);
+      
+      // Refresh the quizzes
+      await fetchQuizzes();
+      
+      toast.success('Collaborateur supprimé avec succès');
+    } catch (error) {
+      console.error('Error removing collaborator:', error);
+      toast.error('Impossible de supprimer le collaborateur');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
     <QuizContext.Provider
       value={{
         quizzes,
+        sharedQuizzes,
         currentQuiz,
         isLoading,
         createQuiz,
@@ -118,6 +217,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         submitQuizAnswers,
         deleteQuiz,
         shareQuiz,
+        removeCollaborator,
       }}
     >
       {children}

@@ -1,5 +1,16 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { 
+  User as FirebaseUser,
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  signInWithPopup,
+  updateProfile
+} from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
@@ -13,7 +24,7 @@ interface AuthContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -23,32 +34,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
+  // Observer for auth state changes
   useEffect(() => {
-    // Simulate fetching user from localStorage
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    
-    setIsLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setIsLoading(true);
+      if (firebaseUser) {
+        // Convert Firebase user to our User type
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          name: firebaseUser.displayName || undefined,
+          photoURL: firebaseUser.photoURL || undefined,
+        });
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
   
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      // Simulate authentication
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: email.split('@')[0],
-      };
-      
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      toast.success('Connexion réussie');
+    } catch (error: any) {
+      console.error('Erreur de connexion:', error);
+      toast.error(error.message || 'Échec de la connexion');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -58,38 +74,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // Simulate authentication
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockUser: User = {
-        id: '1',
-        email: 'user@example.com',
-        name: 'John Doe',
-        photoURL: 'https://via.placeholder.com/150',
-      };
-      
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      await signInWithPopup(auth, googleProvider);
+      toast.success('Connexion avec Google réussie');
+    } catch (error: any) {
+      console.error('Erreur de connexion avec Google:', error);
+      toast.error(error.message || 'Échec de la connexion avec Google');
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
   
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, name?: string) => {
     setIsLoading(true);
     
     try {
-      // Simulate authentication
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
       
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: email.split('@')[0],
-      };
+      // Update profile with name if provided
+      if (name && firebaseUser) {
+        await updateProfile(firebaseUser, { displayName: name });
+      }
       
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      toast.success('Compte créé avec succès');
+    } catch (error: any) {
+      console.error('Erreur de création de compte:', error);
+      toast.error(error.message || 'Échec de la création du compte');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -99,11 +110,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // Simulate sign out
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      localStorage.removeItem('user');
-      setUser(null);
+      await firebaseSignOut(auth);
+      toast.success('Déconnexion réussie');
+    } catch (error: any) {
+      console.error('Erreur de déconnexion:', error);
+      toast.error(error.message || 'Échec de la déconnexion');
+      throw error;
     } finally {
       setIsLoading(false);
     }
