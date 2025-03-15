@@ -4,13 +4,14 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// Remplacez ces valeurs par celles de votre projet Firebase
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "VOTRE_API_KEY", // Remplacez par votre clé API
+  authDomain: "VOTRE_PROJECT_ID.firebaseapp.com", // Remplacez par votre authDomain
+  projectId: "VOTRE_PROJECT_ID", // Remplacez par votre projectId
+  storageBucket: "VOTRE_PROJECT_ID.appspot.com", // Remplacez par votre storageBucket
+  messagingSenderId: "VOTRE_MESSAGING_SENDER_ID", // Remplacez par votre messagingSenderId
+  appId: "VOTRE_APP_ID" // Remplacez par votre appId
 };
 
 // Initialize Firebase
