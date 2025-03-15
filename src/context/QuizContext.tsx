@@ -49,9 +49,9 @@ const mockQuizzes: Quiz[] = [
           { id: 'a', text: 'A programming language', isCorrect: false },
           { id: 'b', text: 'A step-by-step procedure for solving a problem', isCorrect: true },
           { id: 'c', text: 'A type of data structure', isCorrect: false },
-          { id: 'd', text: 'A computer hardware component', isCorrect: false },
+          { id: 'd', text: 'A computer hardware component', isCorrect: false }
         ],
-        explanation: 'An algorithm is a step-by-step procedure for solving a problem or accomplishing a task. It's a set of instructions that describe how to process information.',
+        explanation: 'An algorithm is a step-by-step procedure for solving a problem or accomplishing a task. It\'s a set of instructions that describe how to process information.',
       },
       // More questions would be here
     ],
