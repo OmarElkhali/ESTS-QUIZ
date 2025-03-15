@@ -1,10 +1,9 @@
-
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { QuizForm } from '@/components/QuizForm';
 import { QuizCard } from '@/components/QuizCard';
 import { Separator } from '@/components/ui/separator';
-import { useQuiz } from '@/context/QuizContext';
+import { useQuiz } from '@/hooks/useQuiz';
 
 const Index = () => {
   const { quizzes } = useQuiz();

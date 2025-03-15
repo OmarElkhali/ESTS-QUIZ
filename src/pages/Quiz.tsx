@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, CheckCircle, Clock, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
-import { useQuiz } from '@/context/QuizContext';
+import { useQuiz } from '@/hooks/useQuiz';
 import { cn } from '@/lib/utils';
 
 const Quiz = () => {

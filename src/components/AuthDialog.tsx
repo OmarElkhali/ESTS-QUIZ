@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Mail, Key, Google } from 'lucide-react';
+import { Mail, Key, Github } from 'lucide-react';
 
 interface AuthDialogProps {
   open: boolean;
@@ -132,8 +131,8 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               onClick={handleGoogleAuth}
               disabled={isLoading}
             >
-              <Google className="mr-2 h-4 w-4" />
-              Google
+              <Github className="mr-2 h-4 w-4" />
+              Github
             </Button>
           </TabsContent>
           
@@ -198,8 +197,8 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
               onClick={handleGoogleAuth}
               disabled={isLoading}
             >
-              <Google className="mr-2 h-4 w-4" />
-              Google
+              <Github className="mr-2 h-4 w-4" />
+              Github
             </Button>
           </TabsContent>
         </Tabs>

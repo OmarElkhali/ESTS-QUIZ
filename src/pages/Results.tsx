@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Check, X, ArrowLeft, Home, RefreshCw, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
-import { useQuiz } from '@/context/QuizContext';
+import { useQuiz } from '@/hooks/useQuiz';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 

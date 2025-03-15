@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { QuizCard } from '@/components/QuizCard';
 import { Navbar } from '@/components/Navbar';
-import { useQuiz } from '@/context/QuizContext';
+import { useQuiz } from '@/hooks/useQuiz';
 import { Search, Filter, SortDesc, SortAsc } from 'lucide-react';
 import { motion } from 'framer-motion';
 
