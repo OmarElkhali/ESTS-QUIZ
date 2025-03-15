@@ -3,15 +3,17 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getAnalytics } from 'firebase/analytics';
 
-// Remplacez ces valeurs par celles de votre projet Firebase
+// Configuration Firebase
 const firebaseConfig = {
-  apiKey: "VOTRE_API_KEY", // Remplacez par votre clé API
-  authDomain: "VOTRE_PROJECT_ID.firebaseapp.com", // Remplacez par votre authDomain
-  projectId: "VOTRE_PROJECT_ID", // Remplacez par votre projectId
-  storageBucket: "VOTRE_PROJECT_ID.appspot.com", // Remplacez par votre storageBucket
-  messagingSenderId: "VOTRE_MESSAGING_SENDER_ID", // Remplacez par votre messagingSenderId
-  appId: "VOTRE_APP_ID" // Remplacez par votre appId
+  apiKey: "AIzaSyD_dCI8kVmfIAhW52qPC6wK-zawdx6nmMk",
+  authDomain: "ests-quiz.firebaseapp.com",
+  projectId: "ests-quiz",
+  storageBucket: "ests-quiz.firebasestorage.app",
+  messagingSenderId: "520344746317",
+  appId: "1:520344746317:web:6be8fd307eea9222b61f04",
+  measurementId: "G-MYDPS4XE5F"
 };
 
 // Initialize Firebase
@@ -20,5 +22,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+export const analytics = getAnalytics(app);
 
 export default app;
