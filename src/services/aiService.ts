@@ -42,7 +42,7 @@ export class AIService {
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4o',  // Using gpt-4o as specified
           messages: [
             {
               role: 'system',
@@ -59,6 +59,7 @@ export class AIService {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("OpenAI API error:", errorData);
         throw new Error(errorData.error?.message || 'Error calling OpenAI API');
       }
 

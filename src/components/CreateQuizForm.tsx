@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,9 @@ import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/card';
 
+// Default OpenAI API key
+const DEFAULT_API_KEY = "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";
+
 export const CreateQuizForm = () => {
   const navigate = useNavigate();
   const { createQuiz, isLoading } = useQuiz();
@@ -22,8 +25,8 @@ export const CreateQuizForm = () => {
   const [file, setFile] = useState<File | null>(null);
   const [numQuestions, setNumQuestions] = useState(10);
   const [additionalInfo, setAdditionalInfo] = useState('');
-  const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('local');
-  const [apiKey, setApiKey] = useState('');
+  const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('openai');
+  const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -49,7 +52,7 @@ export const CreateQuizForm = () => {
     }
     
     try {
-      // Fix: Pass the correct parameters to createQuiz function based on its signature
+      // Fix: Pass the correct parameters to createQuiz function based on its signature in QuizContext
       const quizId = await createQuiz(
         file, 
         numQuestions, 
@@ -59,8 +62,9 @@ export const CreateQuizForm = () => {
       
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
       navigate(`/quiz/${quizId}`);
-    } catch (error) {
-      // Error is handled in the quiz context
+    } catch (error: any) {
+      console.error("Error creating quiz:", error);
+      toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
     }
   };
   

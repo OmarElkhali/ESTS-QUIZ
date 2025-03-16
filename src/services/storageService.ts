@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export const uploadFileToSupabase = async (file: File, userId: string): Promise<string> => {
   try {
     // Créer un chemin unique pour le fichier
-    const filePath = `courses/${userId}/${file.name}_${Date.now()}`;
+    const filePath = `courses/${userId}/${Date.now()}_${file.name}`;
     
     // Télécharger le fichier vers le bucket 'quiz-files'
     const { data, error } = await supabase
@@ -14,6 +14,7 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       .upload(filePath, file);
     
     if (error) {
+      console.error("Supabase storage upload error:", error);
       throw error;
     }
     
@@ -23,6 +24,7 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       .from('quiz-files')
       .getPublicUrl(filePath).data.publicUrl;
     
+    console.log("File uploaded successfully:", fileUrl);
     return fileUrl;
   } catch (error) {
     console.error('Erreur lors du téléchargement du fichier:', error);
