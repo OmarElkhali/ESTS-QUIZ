@@ -22,7 +22,8 @@ export const CreateQuizForm = () => {
   const [file, setFile] = useState<File | null>(null);
   const [numQuestions, setNumQuestions] = useState(10);
   const [additionalInfo, setAdditionalInfo] = useState('');
-  const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('openai');
+  const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('local');
+  const [apiKey, setApiKey] = useState('');
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -42,8 +43,20 @@ export const CreateQuizForm = () => {
       return;
     }
     
+    if (selectedAI === 'openai' && !apiKey) {
+      toast.error('Veuillez entrer votre clé API OpenAI');
+      return;
+    }
+    
     try {
-      const quizId = await createQuiz(file, numQuestions, additionalInfo);
+      // Passer l'API key si OpenAI est sélectionné
+      const quizId = await createQuiz(
+        file, 
+        numQuestions, 
+        additionalInfo,
+        selectedAI === 'openai' ? apiKey : undefined
+      );
+      
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
       navigate(`/quiz/${quizId}`);
     } catch (error) {
@@ -56,11 +69,11 @@ export const CreateQuizForm = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="glass-card p-6 md:p-8 border border-primary/20 max-w-xl mx-auto"
+      className="glass-card p-6 md:p-8 border border-[#D2691E]/20 max-w-xl mx-auto"
     >
       <div className="flex items-center space-x-4 mb-6">
-        <div className="p-2 rounded-full bg-primary/10">
-          <BrainCircuit className="h-6 w-6 text-primary" />
+        <div className="p-2 rounded-full bg-[#D2691E]/10">
+          <BrainCircuit className="h-6 w-6 text-[#D2691E]" />
         </div>
         <h2 className="text-2xl font-bold">Paramètres du Quiz</h2>
       </div>
@@ -76,22 +89,22 @@ export const CreateQuizForm = () => {
           <div className="grid grid-cols-2 gap-4">
             <Card 
               className={`p-4 cursor-pointer transition-all hover:shadow-md border ${
-                selectedAI === 'openai' ? 'border-primary' : 'border-input'
+                selectedAI === 'openai' ? 'border-[#D2691E]' : 'border-input'
               }`}
               onClick={() => setSelectedAI('openai')}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium">OpenAI</h3>
+                  <h3 className="font-medium">OpenAI GPT-4o</h3>
                   <p className="text-xs text-muted-foreground">Qualité supérieure, requiert une API key</p>
                 </div>
-                <div className={`w-4 h-4 rounded-full ${selectedAI === 'openai' ? 'bg-primary' : 'bg-muted'}`}></div>
+                <div className={`w-4 h-4 rounded-full ${selectedAI === 'openai' ? 'bg-[#D2691E]' : 'bg-muted'}`}></div>
               </div>
             </Card>
             
             <Card 
               className={`p-4 cursor-pointer transition-all hover:shadow-md border ${
-                selectedAI === 'local' ? 'border-primary' : 'border-input'
+                selectedAI === 'local' ? 'border-[#D2691E]' : 'border-input'
               }`}
               onClick={() => setSelectedAI('local')}
             >
@@ -100,7 +113,7 @@ export const CreateQuizForm = () => {
                   <h3 className="font-medium">Local</h3>
                   <p className="text-xs text-muted-foreground">Fonctionne hors ligne, qualité standard</p>
                 </div>
-                <div className={`w-4 h-4 rounded-full ${selectedAI === 'local' ? 'bg-primary' : 'bg-muted'}`}></div>
+                <div className={`w-4 h-4 rounded-full ${selectedAI === 'local' ? 'bg-[#D2691E]' : 'bg-muted'}`}></div>
               </div>
             </Card>
           </div>
@@ -109,7 +122,7 @@ export const CreateQuizForm = () => {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label htmlFor="num-questions">Nombre de questions</Label>
-            <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+            <span className="text-sm font-medium bg-[#D2691E]/10 text-[#D2691E] px-2 py-0.5 rounded-full">
               {numQuestions}
             </span>
           </div>
@@ -148,6 +161,8 @@ export const CreateQuizForm = () => {
               type="password" 
               placeholder="sk-..." 
               className="font-mono"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               Votre clé API est stockée uniquement sur votre appareil et n'est jamais partagée.
@@ -158,8 +173,8 @@ export const CreateQuizForm = () => {
         <div className="pt-4 flex flex-col sm:flex-row gap-4">
           <Button 
             type="submit" 
-            className="w-full btn-shine bg-primary hover:bg-primary/90"
-            disabled={isLoading || !file || !user}
+            className="w-full btn-shine bg-[#D2691E] hover:bg-[#D2691E]/90"
+            disabled={isLoading || !file || !user || (selectedAI === 'openai' && !apiKey)}
           >
             {isLoading ? (
               <>
@@ -177,7 +192,7 @@ export const CreateQuizForm = () => {
           <Button 
             type="button" 
             variant="outline" 
-            className="w-full hover-scale border-primary/20 text-primary hover:text-primary/80"
+            className="w-full hover-scale border-[#D2691E]/20 text-[#D2691E] hover:text-[#D2691E]/80"
             disabled={!user}
             onClick={() => navigate('/history')}
           >

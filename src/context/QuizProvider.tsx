@@ -41,7 +41,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const createQuiz = async (file: File, numQuestions: number, additionalInfo?: string): Promise<string> => {
+  const createQuiz = async (file: File, numQuestions: number, additionalInfo?: string, apiKey?: string): Promise<string> => {
     if (!user) {
       toast.error('Veuillez vous connecter pour créer un quiz');
       throw new Error('User not authenticated');
@@ -56,11 +56,12 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       // 2. Extract text from file
       const text = await quizService.extractTextFromFile(fileUrl, file.type);
       
-      // 3. Generate questions using AI (simulated)
+      // 3. Generate questions using AI (with or without API key)
       const questions = await quizService.generateQuizFromText(
         text,
         numQuestions,
-        additionalInfo
+        additionalInfo,
+        apiKey
       );
       
       // 4. Save quiz to Firestore

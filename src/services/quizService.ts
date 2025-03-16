@@ -15,21 +15,12 @@ import {
 } from 'firebase/firestore';
 import { Quiz, Question } from '@/types/quiz';
 import { AIService } from './aiService';
-import { supabaseStorage } from './storageService';
+import { uploadFileToSupabase } from './storageService';
 
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
   try {
     // Utiliser Supabase Storage au lieu de Firebase Storage
-    const filePath = `courses/${userId}/${file.name}_${Date.now()}`;
-    const { data, error } = await supabaseStorage
-      .from('quiz-files')
-      .upload(filePath, file);
-    
-    if (error) {
-      throw error;
-    }
-    
-    const fileUrl = supabaseStorage.from('quiz-files').getPublicUrl(filePath).data.publicUrl;
+    const fileUrl = await uploadFileToSupabase(file, userId);
     return fileUrl;
   } catch (error) {
     console.error('Error uploading file:', error);
