@@ -49,7 +49,7 @@ export const CreateQuizForm = () => {
     }
     
     try {
-      // Passer l'API key si OpenAI est sélectionné
+      // Fix: Pass the correct parameters to createQuiz function based on its signature
       const quizId = await createQuiz(
         file, 
         numQuestions, 
