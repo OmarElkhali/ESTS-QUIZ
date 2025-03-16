@@ -1,5 +1,4 @@
-
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
   collection, 
   addDoc, 
@@ -14,48 +13,86 @@ import {
   arrayUnion,
   arrayRemove 
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Quiz, Question } from '@/types/quiz';
+import { AIService } from './aiService';
+import { supabaseStorage } from './storageService';
 
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
-  const fileRef = ref(storage, `courses/${userId}/${file.name}_${Date.now()}`);
-  await uploadBytes(fileRef, file);
-  return getDownloadURL(fileRef);
+  try {
+    // Utiliser Supabase Storage au lieu de Firebase Storage
+    const filePath = `courses/${userId}/${file.name}_${Date.now()}`;
+    const { data, error } = await supabaseStorage
+      .from('quiz-files')
+      .upload(filePath, file);
+    
+    if (error) {
+      throw error;
+    }
+    
+    const fileUrl = supabaseStorage.from('quiz-files').getPublicUrl(filePath).data.publicUrl;
+    return fileUrl;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw new Error('Failed to upload file');
+  }
 };
 
 export const extractTextFromFile = async (fileUrl: string, fileType: string): Promise<string> => {
-  // Note: Dans une application réelle, cette fonction utiliserait un service backend
-  // pour extraire le texte des fichiers PDF, DOCX, etc.
-  // Ici, nous simulons cela pour la démonstration
-
-  // Simule l'extraction de texte
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return "Contenu extrait du fichier (simulé pour la démonstration)";
+  try {
+    // Appel à un service d'extraction de texte
+    // Cette fonction pourrait utiliser un service comme Textract ou une API OCR pour extraire le texte
+    // Pour la démonstration, simulons l'extraction
+    console.log(`Extracting text from ${fileUrl} (${fileType})`);
+    
+    // Voici comment cela pourrait être implémenté avec une API réelle:
+    const response = await fetch('https://api.example.com/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileUrl, fileType })
+    });
+    
+    // Si l'API n'est pas disponible, simulons l'extraction
+    if (!response.ok) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return "Contenu extrait du fichier (simulé pour la démonstration)";
+    }
+    
+    const data = await response.json();
+    return data.text;
+  } catch (error) {
+    console.error('Error extracting text:', error);
+    // Si l'extraction échoue, retourner un texte par défaut pour la démonstration
+    return "Contenu extrait du fichier (simulé pour la démonstration)";
+  }
 };
 
 export const generateQuizFromText = async (
   text: string, 
   numQuestions: number, 
-  additionalInfo?: string
+  additionalInfo?: string,
+  apiKey?: string
 ): Promise<Question[]> => {
-  // Note: Dans une application réelle, cette fonction utiliserait un service d'IA
-  // comme OpenAI ou Claude pour générer les questions
-  // Ici, nous simulons cela pour la démonstration
-  
-  // Simule la génération de questions
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  
-  return Array.from({ length: numQuestions }).map((_, i) => ({
-    id: `q${i + 1}`,
-    text: `Question simulée ${i + 1} basée sur le contenu fourni`,
-    options: [
-      { id: 'a', text: 'Option A', isCorrect: i % 4 === 0 },
-      { id: 'b', text: 'Option B', isCorrect: i % 4 === 1 },
-      { id: 'c', text: 'Option C', isCorrect: i % 4 === 2 },
-      { id: 'd', text: 'Option D', isCorrect: i % 4 === 3 },
-    ],
-    explanation: 'Explication générée pour cette question (simulée).',
-  }));
+  try {
+    if (apiKey) {
+      // Utiliser OpenAI si une API key est fournie
+      return await AIService.generateQuestionsWithOpenAI({
+        text,
+        numQuestions,
+        additionalInfo,
+        apiKey
+      });
+    } else {
+      // Utiliser la génération locale sans API key
+      return await AIService.generateQuestionsLocally({
+        text,
+        numQuestions,
+        additionalInfo
+      });
+    }
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    throw new Error('Failed to generate quiz questions');
+  }
 };
 
 export const createQuiz = async (

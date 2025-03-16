@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { AuthDialog } from './AuthDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Menu, X, User, History, LogOut, Settings, Plus } from 'lucide-react';
+import { Menu, X, User, History, LogOut, Settings, Plus, BookOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export const Navbar = () => {
@@ -63,8 +63,9 @@ export const Navbar = () => {
       )}
     >
       <div className="container mx-auto flex items-center justify-between">
-        <Link to="/" className="text-2xl font-bold tracking-tight hover-scale">
-          QuizFlick
+        <Link to="/" className="flex items-center gap-2 text-2xl font-bold tracking-tight hover-scale">
+          <BookOpen className="h-6 w-6 text-primary" />
+          <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">ESTS-QUIZ</span>
         </Link>
         
         {!isMobile ? (
@@ -72,6 +73,11 @@ export const Navbar = () => {
             <Link to="/" className="font-medium underline-animation">
               Accueil
             </Link>
+            {user && (
+              <Link to="/create-quiz" className="font-medium underline-animation">
+                Créer un Quiz
+              </Link>
+            )}
             <Link to="/history" className="font-medium underline-animation">
               Historique
             </Link>
@@ -101,13 +107,13 @@ export const Navbar = () => {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/create-quiz')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Créer un quiz
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/history')}>
                     <History className="mr-2 h-4 w-4" />
                     Mes quiz
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/')}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Créer un quiz
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
@@ -149,6 +155,15 @@ export const Navbar = () => {
             >
               Accueil
             </Link>
+            {user && (
+              <Link 
+                to="/create-quiz" 
+                className="px-4 py-2 rounded-md hover:bg-secondary transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                Créer un Quiz
+              </Link>
+            )}
             <Link 
               to="/history" 
               className="px-4 py-2 rounded-md hover:bg-secondary transition-colors flex items-center"

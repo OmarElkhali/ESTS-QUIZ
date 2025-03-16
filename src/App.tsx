@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { AuthProvider } from './context/AuthContext';
 import Index from './pages/Index';
+import CreateQuiz from './pages/CreateQuiz';
 import Quiz from './pages/Quiz';
 import Results from './pages/Results';
 import History from './pages/History';
@@ -22,6 +23,7 @@ function App() {
               <QuizProvider>
                 <Routes>
                   <Route path="/" element={<Index />} />
+                  <Route path="/create-quiz" element={<CreateQuiz />} />
                   <Route path="/quiz/:id" element={<Quiz />} />
                   <Route path="/results/:id" element={<Results />} />
                   <Route path="/history/:id" element={<History />} />

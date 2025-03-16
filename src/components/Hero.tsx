@@ -3,8 +3,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AuthDialog } from './AuthDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { FileText, Share2, History, ArrowRight } from 'lucide-react';
+import { FileText, Share2, History, ArrowRight, BookOpen, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface FeatureCardProps {
   icon: React.ReactNode;
@@ -31,6 +33,16 @@ const FeatureCard = ({ icon, title, description, delay }: FeatureCardProps) => (
 export const Hero = () => {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/create-quiz');
+    } else {
+      setShowAuthDialog(true);
+    }
+  };
   
   return (
     <section className="pt-32 pb-16 px-6">
@@ -44,32 +56,33 @@ export const Hero = () => {
             className="flex-1 space-y-6"
           >
             <div className="space-y-2">
-              <div className="inline-block bg-primary/10 text-primary font-medium rounded-full px-4 py-1 text-sm mb-4">
-                AI-Powered Learning
+              <div className="inline-block bg-primary/10 text-primary font-medium rounded-full px-4 py-1 text-sm mb-4 flex items-center">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Apprentissage Intelligent
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-                Transform Your Study Materials Into Interactive Quizzes
+                <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">ESTS-QUIZ</span> - Transformez Vos Cours en QCM Interactifs
               </h1>
               <p className="text-xl text-muted-foreground mt-6">
-                Upload your course materials and let our AI create personalized quizzes to test your knowledge. Share with friends and track your progress.
+                Téléchargez vos supports de cours et laissez notre IA créer des quiz personnalisés pour tester vos connaissances.
               </p>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button 
-                onClick={() => setShowAuthDialog(true)} 
+                onClick={handleGetStarted} 
                 size="lg"
-                className="btn-shine"
+                className="btn-shine bg-primary hover:bg-primary/90"
               >
-                Get Started
+                Commencer
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button 
                 variant="outline" 
                 size="lg"
-                className="hover-scale"
+                className="hover-scale border-primary/20 text-primary hover:text-primary/80"
               >
-                Learn More
+                En savoir plus
               </Button>
             </div>
           </motion.div>
@@ -81,14 +94,14 @@ export const Hero = () => {
             className="flex-1 relative aspect-square max-w-md"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-primary/10 rounded-full blur-3xl opacity-20 animate-pulse-soft" />
-            <div className="relative glass-card overflow-hidden aspect-square rounded-3xl border border-white/20 shadow-xl flex items-center justify-center">
+            <div className="relative glass-card overflow-hidden aspect-square rounded-3xl border border-primary/20 shadow-xl flex items-center justify-center">
               <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
               <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
-              <img
-                src="/placeholder.svg"
-                alt="Quiz App Interface"
-                className="w-4/5 h-4/5 object-cover rounded-xl shadow-lg animate-float"
-              />
+              <div className="flex flex-col items-center justify-center p-6 z-10">
+                <BookOpen className="h-20 w-20 text-primary mb-4" />
+                <h2 className="text-2xl font-bold text-center bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">ESTS-QUIZ</h2>
+                <p className="text-muted-foreground text-center mt-2">L'assistant intelligent pour vos études</p>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -96,29 +109,29 @@ export const Hero = () => {
         {/* Features */}
         <div className="mt-32 mb-16">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Key Features</h2>
+            <h2 className="text-3xl font-bold mb-4">Fonctionnalités Clés</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              QuizFlick combines AI intelligence with elegant design to create the ultimate learning experience
+              ESTS-QUIZ combine l'intelligence artificielle avec un design élégant pour créer l'expérience d'apprentissage ultime
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <FeatureCard
               icon={<FileText className="h-6 w-6 text-primary" />}
-              title="AI Question Generation"
-              description="Upload your study materials and our AI will generate relevant quiz questions tailored to your content."
+              title="Génération IA de Questions"
+              description="Téléchargez vos documents de cours et notre IA générera des questions pertinentes adaptées à votre contenu."
               delay={0.1}
             />
             <FeatureCard
               icon={<Share2 className="h-6 w-6 text-primary" />}
-              title="Collaborative Quizzes"
-              description="Share quizzes with friends and take them together in real-time for a social learning experience."
+              title="Quiz Collaboratifs"
+              description="Partagez vos quiz avec vos amis et faites-les ensemble en temps réel pour une expérience d'apprentissage sociale."
               delay={0.2}
             />
             <FeatureCard
               icon={<History className="h-6 w-6 text-primary" />}
-              title="Comprehensive History"
-              description="Review your past quizzes, track your progress, and identify areas for improvement."
+              title="Historique Complet"
+              description="Consultez vos quiz passés, suivez vos progrès et identifiez les domaines à améliorer."
               delay={0.3}
             />
           </div>
