@@ -3,13 +3,12 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useNavigate } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { FileUpload } from './FileUpload';
 import { toast } from 'sonner';
-import { BrainCircuit, Share2, ArrowRight, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import FileUpload from '@/components/FileUpload';
+import { FileCheck } from 'lucide-react';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/card';
@@ -30,34 +29,35 @@ export const CreateQuizForm = () => {
   
   const handleFileSelect = (file: File) => {
     setFile(file);
-    toast.success('Fichier téléchargé avec succès');
+    toast.success(`Fichier sélectionné: ${file.name}`);
+  };
+  
+  const handleNumQuestionsChange = (value: number[]) => {
+    setNumQuestions(value[0]);
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      toast.error('Veuillez vous connecter pour créer un quiz');
-      return;
-    }
-    
     if (!file) {
-      toast.error('Veuillez télécharger un fichier de cours');
+      toast.error("Veuillez sélectionner un fichier");
       return;
     }
     
-    if (selectedAI === 'openai' && !apiKey) {
-      toast.error('Veuillez entrer votre clé API OpenAI');
+    if (!user) {
+      toast.error("Veuillez vous connecter pour créer un quiz");
       return;
     }
     
     try {
-      // Fix: Pass the correct parameters to createQuiz function based on its signature in QuizContext
+      // Use the API key only when selectedAI is 'openai'
+      const apiKeyToUse = selectedAI === 'openai' ? apiKey : undefined;
+      
       const quizId = await createQuiz(
         file, 
         numQuestions, 
         additionalInfo,
-        selectedAI === 'openai' ? apiKey : undefined
+        apiKeyToUse
       );
       
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);

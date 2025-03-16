@@ -35,6 +35,8 @@ export class AIService {
         Inclure une explication pour chaque réponse correcte.
       `;
 
+      console.log("Calling OpenAI API with apiKey:", apiKey.substring(0, 10) + "...");
+      
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -65,7 +67,9 @@ export class AIService {
 
       const data = await response.json();
       const aiResponse = data.choices[0].message.content;
-
+      
+      console.log("OpenAI response received successfully");
+      
       // Transformation de la réponse en questions structurées
       return this.parseAIResponseToQuestions(aiResponse);
     } catch (error) {

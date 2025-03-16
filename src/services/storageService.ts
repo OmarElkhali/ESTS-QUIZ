@@ -7,11 +7,16 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     // Créer un chemin unique pour le fichier
     const filePath = `courses/${userId}/${Date.now()}_${file.name}`;
     
+    console.log("Uploading file to Supabase:", filePath);
+    
     // Télécharger le fichier vers le bucket 'quiz-files'
     const { data, error } = await supabase
       .storage
       .from('quiz-files')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
     
     if (error) {
       console.error("Supabase storage upload error:", error);
