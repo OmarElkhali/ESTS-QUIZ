@@ -8,7 +8,7 @@ import Index from './pages/Index';
 import CreateQuiz from './pages/CreateQuiz';
 import Quiz from './pages/Quiz';
 import Results from './pages/Results';
-import History from './pages/History';
+import QuizHistory from './pages/QuizHistory';
 import { QuizProvider } from '@/context/index';
 
 const queryClient = new QueryClient()
@@ -26,7 +26,7 @@ function App() {
                   <Route path="/create-quiz" element={<CreateQuiz />} />
                   <Route path="/quiz/:id" element={<Quiz />} />
                   <Route path="/results/:id" element={<Results />} />
-                  <Route path="/history/:id" element={<History />} />
+                  <Route path="/history" element={<QuizHistory />} />
                 </Routes>
               </QuizProvider>
             </AuthProvider>

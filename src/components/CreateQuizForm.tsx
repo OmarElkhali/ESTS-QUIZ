@@ -7,8 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import FileUpload from '@/components/FileUpload';
-import { FileCheck } from 'lucide-react';
+import { FileUpload } from '@/components/FileUpload';
+import { BrainCircuit, Share2, ArrowRight, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/card';
@@ -136,7 +137,7 @@ export const CreateQuizForm = () => {
             min={5}
             max={50}
             step={5}
-            onValueChange={(value) => setNumQuestions(value[0])}
+            onValueChange={handleNumQuestionsChange}
             className="py-4"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
