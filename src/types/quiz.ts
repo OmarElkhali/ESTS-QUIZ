@@ -28,7 +28,7 @@ export interface QuizContextType {
   sharedQuizzes: Quiz[];
   currentQuiz: Quiz | null;
   isLoading: boolean;
-  createQuiz: (file: File, numQuestions: number, additionalInfo?: string) => Promise<string>;
+  createQuiz: (file: File, numQuestions: number, additionalInfo?: string, apiKey?: string) => Promise<string>;
   getQuiz: (id: string) => Promise<Quiz | null>;
   submitQuizAnswers: (quizId: string, answers: Record<string, string>) => Promise<number>;
   deleteQuiz: (id: string) => Promise<void>;

@@ -9,7 +9,7 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     
     console.log("Uploading file to Supabase:", filePath);
     
-    // Télécharger le fichier vers le bucket 'quiz-files'
+    // Check if 'quiz-files' bucket exists, if not, this will fail gracefully and the error will be caught
     const { data, error } = await supabase
       .storage
       .from('quiz-files')
