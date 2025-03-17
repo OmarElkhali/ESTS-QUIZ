@@ -19,8 +19,10 @@ import { uploadFileToSupabase } from './storageService';
 
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
   try {
+    console.log('Starting file upload process for:', file.name);
     // Utiliser Supabase Storage au lieu de Firebase Storage
     const fileUrl = await uploadFileToSupabase(file, userId);
+    console.log('File successfully uploaded to Supabase:', fileUrl);
     return fileUrl;
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -92,22 +94,29 @@ export const createQuiz = async (
   description: string, 
   questions: Question[]
 ): Promise<string> => {
-  const quizData = {
-    userId,
-    title,
-    description,
-    questions,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    completionRate: 0,
-    duration: `${Math.round(questions.length * 1.5)} min`,
-    participants: 0,
-    collaborators: [],
-    isShared: false,
-  };
-  
-  const docRef = await addDoc(collection(db, 'quizzes'), quizData);
-  return docRef.id;
+  try {
+    console.log('Creating quiz with title:', title);
+    const quizData = {
+      userId,
+      title,
+      description,
+      questions,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      completionRate: 0,
+      duration: `${Math.round(questions.length * 1.5)} min`,
+      participants: 0,
+      collaborators: [],
+      isShared: false,
+    };
+    
+    const docRef = await addDoc(collection(db, 'quizzes'), quizData);
+    console.log('Quiz created with ID:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating quiz in Firestore:', error);
+    throw new Error(`Failed to create quiz in database: ${error.message}`);
+  }
 };
 
 export const getQuizzes = async (userId: string): Promise<Quiz[]> => {

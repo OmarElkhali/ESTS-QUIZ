@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 
 // Default OpenAI API key
 const DEFAULT_API_KEY = "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";
@@ -27,6 +28,24 @@ export const CreateQuizForm = () => {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('openai');
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
+  
+  // Call the edge function to create storage bucket on component mount
+  useEffect(() => {
+    const createBucket = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('create-storage-bucket');
+        if (error) {
+          console.error('Error creating bucket:', error);
+        } else {
+          console.log('Storage bucket response:', data);
+        }
+      } catch (err) {
+        console.error('Failed to call create-storage-bucket function:', err);
+      }
+    };
+    
+    createBucket();
+  }, []);
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -51,6 +70,7 @@ export const CreateQuizForm = () => {
     }
     
     try {
+      console.log('Starting quiz creation process');
       // Use the API key only when selectedAI is 'openai'
       const apiKeyToUse = selectedAI === 'openai' ? apiKey : undefined;
       

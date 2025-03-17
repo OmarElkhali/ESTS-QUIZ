@@ -12,7 +12,12 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     
     console.log("Uploading file to Supabase:", filePath);
     
-    // Check if 'quiz-files' bucket exists, if not, this will fail gracefully and the error will be caught
+    // Verify if supabase client is properly initialized
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized');
+    }
+    
+    // Upload the file to the quiz-files bucket
     const { data, error } = await supabase
       .storage
       .from('quiz-files')
@@ -26,7 +31,11 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       throw new Error(`Upload failed: ${error.message}`);
     }
     
-    // Obtenir l'URL publique du fichier
+    if (!data) {
+      throw new Error('Upload completed but no data was returned');
+    }
+    
+    // Get the public URL of the file
     const fileUrl = supabase
       .storage
       .from('quiz-files')

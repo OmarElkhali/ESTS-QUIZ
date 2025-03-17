@@ -3,6 +3,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0'
 
 serve(async (req) => {
+  console.log('Edge function: Create storage bucket invoked');
+  
   // Create a Supabase client with the service role key
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -22,14 +24,17 @@ serve(async (req) => {
       .listBuckets()
     
     if (listError) {
+      console.error('Error listing buckets:', listError);
       throw new Error(`Error listing buckets: ${listError.message}`)
     }
     
     // Check if the bucket already exists
     const bucketExists = existingBuckets.some(bucket => bucket.name === 'quiz-files')
+    console.log('Bucket exists:', bucketExists);
     
     if (!bucketExists) {
       // Create the bucket
+      console.log('Creating bucket: quiz-files');
       const { data, error } = await supabaseAdmin
         .storage
         .createBucket('quiz-files', {
@@ -39,24 +44,19 @@ serve(async (req) => {
         })
       
       if (error) {
+        console.error('Error creating bucket:', error);
         throw new Error(`Error creating bucket: ${error.message}`)
       }
       
-      console.log('Created quiz-files bucket successfully')
+      console.log('Created quiz-files bucket successfully');
       
-      // Set up bucket policies
-      const { error: policyError } = await supabaseAdmin.rpc('create_storage_policy', {
-        bucket_name: 'quiz-files',
-        policy_name: 'Public Access',
-        definition: {
-          name: 'Public Access',
-          allow_upload: true,
-          allow_download: true
-        }
-      })
-      
-      if (policyError) {
-        console.error('Warning: Could not set bucket policies', policyError)
+      // Set up bucket policies to allow public access
+      try {
+        console.log('Setting up bucket policies');
+        await supabaseAdmin.storage.from('quiz-files').setPublic(true);
+        console.log('Bucket policies set successfully');
+      } catch (policyError) {
+        console.error('Warning: Could not set bucket policies', policyError);
       }
     }
     
@@ -68,6 +68,7 @@ serve(async (req) => {
       { headers: { 'Content-Type': 'application/json' } }
     )
   } catch (err) {
+    console.error('Storage bucket creation error:', err);
     return new Response(
       JSON.stringify({
         success: false,
