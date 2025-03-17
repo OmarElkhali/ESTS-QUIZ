@@ -4,11 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 // Fonction pour télécharger un fichier vers Supabase Storage
 export const uploadFileToSupabase = async (file: File, userId: string): Promise<string> => {
   try {
-    // Create a clean filename without spaces for Supabase Storage
-    const cleanFileName = file.name.replace(/\s+/g, '_');
+    // Create a clean filename without spaces and special characters for Supabase Storage
+    // Remove any accents, special characters, and spaces
+    const cleanFileName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
     
-    // Créer un chemin unique pour le fichier
-    const filePath = `${userId}/${Date.now()}_${cleanFileName}`;
+    // Créer un chemin unique pour le fichier avec un format que Supabase accepte
+    const filePath = `${Date.now()}_${cleanFileName}`;
     
     console.log("Uploading file to Supabase:", filePath);
     

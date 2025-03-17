@@ -2,7 +2,17 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   console.log('Edge function: Create storage bucket invoked');
   
   // Create a Supabase client with the service role key
@@ -49,15 +59,16 @@ serve(async (req) => {
       }
       
       console.log('Created quiz-files bucket successfully');
-      
-      // Set up bucket policies to allow public access
-      try {
-        console.log('Setting up bucket policies');
-        await supabaseAdmin.storage.from('quiz-files').setPublic(true);
-        console.log('Bucket policies set successfully');
-      } catch (policyError) {
-        console.error('Warning: Could not set bucket policies', policyError);
-      }
+    }
+    
+    // Ensure bucket is public and policies are set correctly
+    // This is now handled by SQL policies, but we'll double-check
+    try {
+      console.log('Setting up bucket policies');
+      await supabaseAdmin.storage.from('quiz-files').setPublic(true);
+      console.log('Bucket policies set successfully');
+    } catch (policyError) {
+      console.error('Warning: Could not set bucket policies', policyError);
     }
     
     return new Response(
@@ -65,7 +76,12 @@ serve(async (req) => {
         success: true, 
         message: bucketExists ? 'Bucket already exists' : 'Bucket created successfully'
       }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders 
+        } 
+      }
     )
   } catch (err) {
     console.error('Storage bucket creation error:', err);
@@ -76,7 +92,10 @@ serve(async (req) => {
       }),
       { 
         status: 400,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders 
+        }
       }
     )
   }

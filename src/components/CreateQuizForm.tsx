@@ -28,19 +28,26 @@ export const CreateQuizForm = () => {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('openai');
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
+  const [bucketReady, setBucketReady] = useState(false);
   
   // Call the edge function to create storage bucket on component mount
   useEffect(() => {
     const createBucket = async () => {
       try {
+        console.log('Calling edge function to create storage bucket');
         const { data, error } = await supabase.functions.invoke('create-storage-bucket');
+        
         if (error) {
           console.error('Error creating bucket:', error);
+          toast.error('Erreur lors de la création du bucket de stockage');
         } else {
           console.log('Storage bucket response:', data);
+          setBucketReady(true);
+          toast.success('Bucket de stockage configuré avec succès');
         }
       } catch (err) {
         console.error('Failed to call create-storage-bucket function:', err);
+        toast.error('Erreur lors de la configuration du stockage');
       }
     };
     
@@ -66,6 +73,11 @@ export const CreateQuizForm = () => {
     
     if (!user) {
       toast.error("Veuillez vous connecter pour créer un quiz");
+      return;
+    }
+    
+    if (!bucketReady) {
+      toast.error("Le système de stockage n'est pas encore prêt, veuillez réessayer dans quelques instants");
       return;
     }
     
