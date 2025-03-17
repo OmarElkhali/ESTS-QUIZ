@@ -1,9 +1,19 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// Fonction pour télécharger un fichier vers Supabase Storage
+// Function to validate if supabase client is properly initialized
+const validateSupabaseClient = () => {
+  if (!supabase) {
+    throw new Error('Supabase client is not initialized');
+  }
+};
+
+// Function to upload a file to Supabase Storage
 export const uploadFileToSupabase = async (file: File, userId: string): Promise<string> => {
   try {
+    // Validate the Supabase client
+    validateSupabaseClient();
+    
     // Create a clean filename without spaces and special characters for Supabase Storage
     // Remove any accents, special characters, and spaces
     const cleanFileName = file.name
@@ -11,15 +21,10 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       .replace(/[\u0300-\u036f]/g, '') // Remove accents
       .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
     
-    // Créer un chemin unique pour le fichier avec un format que Supabase accepte
+    // Create a unique path for the file in a format accepted by Supabase
     const filePath = `${Date.now()}_${cleanFileName}`;
     
     console.log("Uploading file to Supabase:", filePath);
-    
-    // Verify if supabase client is properly initialized
-    if (!supabase) {
-      throw new Error('Supabase client is not initialized');
-    }
     
     // Upload the file to the quiz-files bucket
     const { data, error } = await supabase
@@ -40,15 +45,19 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     }
     
     // Get the public URL of the file
-    const fileUrl = supabase
+    const { data: urlData } = supabase
       .storage
       .from('quiz-files')
-      .getPublicUrl(filePath).data.publicUrl;
+      .getPublicUrl(filePath);
+      
+    if (!urlData || !urlData.publicUrl) {
+      throw new Error('Failed to get public URL for uploaded file');
+    }
     
-    console.log("File uploaded successfully:", fileUrl);
-    return fileUrl;
+    console.log("File uploaded successfully:", urlData.publicUrl);
+    return urlData.publicUrl;
   } catch (error: any) {
-    console.error('Erreur lors du téléchargement du fichier:', error);
-    throw new Error(`Échec du téléchargement de fichier: ${error.message}`);
+    console.error('Error uploading file:', error);
+    throw new Error(`File upload failed: ${error.message}`);
   }
 };
