@@ -43,42 +43,57 @@ serve(async (req) => {
     const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
 
     if (!bucketExists) {
-      // Create the bucket if it doesn't exist
-      const { error: createError } = await supabase
-        .storage
-        .createBucket('quiz-files', {
-          public: true,
-          fileSizeLimit: 10485760, // 10MB
-          allowedMimeTypes: ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-        });
+      try {
+        // Create the bucket if it doesn't exist
+        const { error: createError } = await supabase
+          .storage
+          .createBucket('quiz-files', {
+            public: true,
+            fileSizeLimit: 10485760, // 10MB
+            allowedMimeTypes: ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+          });
 
-      if (createError) {
-        console.error('Error creating bucket:', createError);
-        throw new Error(`Failed to create bucket: ${createError.message}`);
+        if (createError) {
+          console.error('Error creating bucket:', createError);
+          // If the error is because the bucket already exists, don't throw
+          if (!createError.message.includes('already exists')) {
+            throw new Error(`Failed to create bucket: ${createError.message}`);
+          }
+        }
+
+        console.log('Bucket created successfully');
+      } catch (createErr) {
+        // If the error indicates the bucket already exists, continue
+        if (!createErr.message.includes('already exists')) {
+          throw createErr;
+        }
       }
-
-      console.log('Bucket created successfully');
     }
 
-    // Set bucket to public and update policies
-    await supabase.storage.updateBucket('quiz-files', {
-      public: true
-    });
+    // Ensure the bucket is public and policies are set
+    try {
+      await supabase.storage.updateBucket('quiz-files', {
+        public: true
+      });
 
-    // Create policies for the bucket
-    const { error: policyError } = await supabase.rpc('create_storage_policy', {
-      bucket_name: 'quiz-files'
-    });
+      // Create policies for the bucket
+      const { error: policyError } = await supabase.rpc('create_storage_policy', {
+        bucket_name: 'quiz-files'
+      });
 
-    if (policyError) {
-      console.warn('Warning: Could not create storage policy:', policyError);
-      // Continue despite policy error as the bucket might still work
+      if (policyError) {
+        console.warn('Warning: Could not create storage policy:', policyError);
+        // Continue despite policy error as the bucket might still work
+      }
+    } catch (err) {
+      console.warn('Warning: Error updating bucket settings:', err);
+      // Continue as this is not a critical error
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: bucketExists ? 'Bucket already exists' : 'Bucket created and configured successfully',
+        message: bucketExists ? 'Bucket already exists and is configured' : 'Bucket created and configured successfully',
         bucket: 'quiz-files'
       }),
       {
@@ -98,7 +113,7 @@ serve(async (req) => {
         error: error.message || 'Internal server error'
       }),
       {
-        status: 500,
+        status: error.message.includes('already exists') ? 200 : 500,
         headers: {
           'Content-Type': 'application/json',
           ...corsHeaders
