@@ -1,29 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-const validateSupabaseClient = () => {
-  if (!supabase) {
-    throw new Error('Supabase client not initialized');
-  }
-};
-
-// Function to upload a file to Supabase Storage
 export const uploadFileToSupabase = async (file: File, userId: string): Promise<string> => {
   try {
-    // Validate the Supabase client
-    validateSupabaseClient();
-    
-    // Create a clean filename for Supabase Storage
-    const timestamp = Date.now();
-    const cleanFileName = file.name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove accents
-      .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
-    
-    // Create a unique path with timestamp and user ID
-    const filePath = `${userId}/${timestamp}_${cleanFileName}`;
-    
-    console.log("Attempting to upload file:", filePath);
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
     
     // Check if bucket exists before uploading
     const { data: buckets, error: bucketError } = await supabase
@@ -41,7 +23,19 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       throw new Error('Storage bucket not found');
     }
     
-    // Attempt to upload the file
+    // Create a clean filename
+    const timestamp = Date.now();
+    const cleanFileName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
+    
+    // Create a unique path
+    const filePath = `${userId}/${timestamp}_${cleanFileName}`;
+    
+    console.log("Attempting to upload file:", filePath);
+    
+    // Upload the file
     const { data, error: uploadError } = await supabase
       .storage
       .from('quiz-files')
