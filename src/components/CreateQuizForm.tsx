@@ -15,7 +15,6 @@ import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// Default OpenAI API key
 const DEFAULT_API_KEY = "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";
 
 export const CreateQuizForm = () => {
@@ -32,7 +31,6 @@ export const CreateQuizForm = () => {
   const [bucketLoading, setBucketLoading] = useState(true);
   const [bucketError, setBucketError] = useState<string | null>(null);
   
-  // Call the edge function to create storage bucket on component mount
   const createBucket = async () => {
     setBucketLoading(true);
     setBucketError(null);
@@ -110,7 +108,6 @@ export const CreateQuizForm = () => {
     
     try {
       console.log('Starting quiz creation process');
-      // Use the API key only when selectedAI is 'openai'
       const apiKeyToUse = selectedAI === 'openai' ? apiKey : undefined;
       
       const quizId = await createQuiz(
@@ -121,7 +118,7 @@ export const CreateQuizForm = () => {
       );
       
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
-      navigate(`/quiz/${quizId}`);
+      navigate(`/quiz-preview/${quizId}`);
     } catch (error: any) {
       console.error("Error creating quiz:", error);
       toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);

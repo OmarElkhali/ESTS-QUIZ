@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { AuthProvider } from './context/AuthContext';
 import Index from './pages/Index';
 import CreateQuiz from './pages/CreateQuiz';
+import QuizPreview from './pages/QuizPreview';
 import Quiz from './pages/Quiz';
 import Results from './pages/Results';
 import QuizHistory from './pages/QuizHistory';
@@ -24,6 +25,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/create-quiz" element={<CreateQuiz />} />
+                  <Route path="/quiz-preview/:id" element={<QuizPreview />} />
                   <Route path="/quiz/:id" element={<Quiz />} />
                   <Route path="/results/:id" element={<Results />} />
                   <Route path="/history" element={<QuizHistory />} />
