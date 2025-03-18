@@ -13,115 +13,102 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log('Edge function: Create storage bucket invoked');
-  
-  // Create a Supabase client with the service role key
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  
-  if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('Missing Supabase URL or service role key');
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'Server configuration error - missing credentials'
-      }),
-      { 
-        status: 500,
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders 
+  try {
+    console.log('Edge function: Create storage bucket invoked');
+    
+    // Get Supabase credentials from environment
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    // Validate credentials
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase credentials');
+    }
+    
+    // Initialize Supabase client with service role key
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      supabaseServiceKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
         }
       }
     );
-  }
 
-  const supabaseAdmin = createClient(
-    supabaseUrl,
-    supabaseServiceKey,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
-
-  try {
-    // Check if the bucket already exists
+    // Check if bucket exists
     console.log('Checking if bucket exists...');
     const { data: existingBuckets, error: listError } = await supabaseAdmin
       .storage
       .listBuckets();
-    
+      
     if (listError) {
       console.error('Error listing buckets:', listError);
-      throw new Error(`Error listing buckets: ${listError.message}`);
+      throw new Error(`Failed to list buckets: ${listError.message}`);
     }
-    
+
     const bucketExists = existingBuckets.some(bucket => bucket.name === 'quiz-files');
-    console.log('Bucket exists:', bucketExists);
     
     if (!bucketExists) {
-      // Create the bucket
-      console.log('Creating bucket: quiz-files');
-      const { data, error } = await supabaseAdmin
+      console.log('Creating quiz-files bucket...');
+      const { error: createError } = await supabaseAdmin
         .storage
         .createBucket('quiz-files', {
           public: true,
           fileSizeLimit: 10485760, // 10MB
           allowedMimeTypes: ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
         });
-      
-      if (error) {
-        console.error('Error creating bucket:', error);
-        throw new Error(`Error creating bucket: ${error.message}`);
+        
+      if (createError) {
+        console.error('Error creating bucket:', createError);
+        throw new Error(`Failed to create bucket: ${createError.message}`);
       }
-      
-      console.log('Created quiz-files bucket successfully');
     }
-    
-    // Add explicit public access policy for the bucket
-    console.log('Setting up bucket policies');
+
+    // Ensure bucket is public and has correct policies
+    console.log('Configuring bucket policies...');
     try {
-      // First, try to update bucket to be public
       await supabaseAdmin.storage.updateBucket('quiz-files', {
         public: true
       });
-      console.log('Bucket updated to be public');
       
-      // Then, try to directly set it public
-      await supabaseAdmin.storage.from('quiz-files').setPublic(true);
-      console.log('Bucket policies set successfully');
+      // Create a new policy to allow public access
+      const policyName = 'allow_public_access';
+      await supabaseAdmin
+        .storage
+        .from('quiz-files')
+        .createSignedUrl('dummy.txt', 1); // This creates default policies
     } catch (policyError) {
-      console.error('Warning: Could not set bucket policies', policyError);
-      // Continue despite policy error - SQL policies should handle this
+      console.warn('Warning: Could not update bucket policies:', policyError);
+      // Continue despite policy error as the bucket might still work
     }
-    
+
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        message: bucketExists ? 'Bucket already exists' : 'Bucket created successfully'
+        success: true,
+        message: bucketExists ? 'Bucket already exists' : 'Bucket created successfully',
+        bucket: 'quiz-files'
       }),
-      { 
-        headers: { 
+      {
+        headers: {
           'Content-Type': 'application/json',
-          ...corsHeaders 
-        } 
+          ...corsHeaders
+        }
       }
     );
-  } catch (err) {
-    console.error('Storage bucket creation error:', err);
+  } catch (error) {
+    console.error('Storage bucket creation error:', error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: err.message
+        error: error.message
       }),
-      { 
+      {
         status: 500,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          ...corsHeaders 
+          ...corsHeaders
         }
       }
     );

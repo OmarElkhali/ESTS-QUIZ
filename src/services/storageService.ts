@@ -1,10 +1,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// Function to validate if supabase client is properly initialized
 const validateSupabaseClient = () => {
   if (!supabase) {
-    throw new Error('Supabase client is not initialized');
+    throw new Error('Supabase client not initialized');
   }
 };
 
@@ -14,37 +13,53 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     // Validate the Supabase client
     validateSupabaseClient();
     
-    // Create a clean filename without spaces and special characters for Supabase Storage
-    // Remove any accents, special characters, and spaces
+    // Create a clean filename for Supabase Storage
+    const timestamp = Date.now();
     const cleanFileName = file.name
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Remove accents
       .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
     
-    // Create a unique path for the file in a format accepted by Supabase
-    const filePath = `${Date.now()}_${cleanFileName}`;
+    // Create a unique path with timestamp and user ID
+    const filePath = `${userId}/${timestamp}_${cleanFileName}`;
     
-    console.log("Uploading file to Supabase:", filePath);
+    console.log("Attempting to upload file:", filePath);
     
-    // Upload the file to the quiz-files bucket
-    const { data, error } = await supabase
+    // Check if bucket exists before uploading
+    const { data: buckets, error: bucketError } = await supabase
+      .storage
+      .listBuckets();
+      
+    if (bucketError) {
+      console.error("Error checking buckets:", bucketError);
+      throw new Error('Unable to verify storage bucket');
+    }
+    
+    const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
+    if (!bucketExists) {
+      console.error("Bucket 'quiz-files' does not exist");
+      throw new Error('Storage bucket not found');
+    }
+    
+    // Attempt to upload the file
+    const { data, error: uploadError } = await supabase
       .storage
       .from('quiz-files')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true // Set to true to overwrite existing files
+        upsert: true
       });
     
-    if (error) {
-      console.error("Supabase storage upload error:", error);
-      throw new Error(`Upload failed: ${error.message}`);
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      throw new Error(`Upload failed: ${uploadError.message}`);
     }
     
     if (!data) {
       throw new Error('Upload completed but no data was returned');
     }
     
-    // Get the public URL of the file
+    // Get the public URL
     const { data: urlData } = supabase
       .storage
       .from('quiz-files')
@@ -57,7 +72,7 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     console.log("File uploaded successfully:", urlData.publicUrl);
     return urlData.publicUrl;
   } catch (error: any) {
-    console.error('Error uploading file:', error);
+    console.error('File upload error:', error);
     throw new Error(`File upload failed: ${error.message}`);
   }
 };
