@@ -1,124 +1,98 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing environment variables');
-      throw new Error('Server configuration error');
-    }
-
-    // Initialize Supabase admin client
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    // First, check if the bucket already exists
-    const { data: buckets, error: listError } = await supabase
-      .storage
-      .listBuckets();
-
-    if (listError) {
-      console.error('Error listing buckets:', listError);
-      throw new Error('Failed to check existing buckets');
-    }
-
-    const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
-
-    if (!bucketExists) {
-      try {
-        // Create the bucket if it doesn't exist
-        const { error: createError } = await supabase
-          .storage
-          .createBucket('quiz-files', {
-            public: true,
-            fileSizeLimit: 10485760, // 10MB
-            allowedMimeTypes: ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-          });
-
-        if (createError) {
-          console.error('Error creating bucket:', createError);
-          // If the error is because the bucket already exists, don't throw
-          if (!createError.message.includes('already exists')) {
-            throw new Error(`Failed to create bucket: ${createError.message}`);
-          }
-        }
-
-        console.log('Bucket created successfully');
-      } catch (createErr) {
-        // If the error indicates the bucket already exists, continue
-        if (!createErr.message.includes('already exists')) {
-          throw createErr;
-        }
-      }
-    }
-
-    // Ensure the bucket is public and policies are set
-    try {
-      await supabase.storage.updateBucket('quiz-files', {
-        public: true
-      });
-
-      // Create policies for the bucket
-      const { error: policyError } = await supabase.rpc('create_storage_policy', {
-        bucket_name: 'quiz-files'
-      });
-
-      if (policyError) {
-        console.warn('Warning: Could not create storage policy:', policyError);
-        // Continue despite policy error as the bucket might still work
-      }
-    } catch (err) {
-      console.warn('Warning: Error updating bucket settings:', err);
-      // Continue as this is not a critical error
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: bucketExists ? 'Bucket already exists and is configured' : 'Bucket created and configured successfully',
-        bucket: 'quiz-files'
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      }
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
     );
 
-  } catch (error) {
-    console.error('Error in edge function:', error);
+    // Check if bucket already exists
+    const { data: existingBuckets, error: listError } = await supabaseClient
+      .storage
+      .listBuckets();
     
+    if (listError) {
+      console.error("Error listing buckets:", listError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to check existing buckets" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+
+    const bucketExists = existingBuckets.some(bucket => bucket.name === "quiz-files");
+    
+    if (bucketExists) {
+      console.log("Bucket 'quiz-files' already exists");
+      
+      // Create bucket policy if it doesn't exist
+      await createBucketPolicy(supabaseClient);
+      
+      return new Response(
+        JSON.stringify({ success: true, message: "Bucket already exists" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create the bucket
+    const { data, error } = await supabaseClient
+      .storage
+      .createBucket("quiz-files", {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+      });
+
+    if (error) {
+      console.error("Error creating bucket:", error);
+      return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+
+    // Create bucket policy
+    await createBucketPolicy(supabaseClient);
+
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message || 'Internal server error'
-      }),
-      {
-        status: error.message.includes('already exists') ? 200 : 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      }
+      JSON.stringify({ success: true, data }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
+
+async function createBucketPolicy(supabaseClient: any) {
+  try {
+    // Create a policy to allow public read access
+    const { error: policyError } = await supabaseClient.rpc(
+      "create_storage_policy",
+      { bucket_name: "quiz-files" }
+    );
+
+    if (policyError) {
+      console.error("Error creating bucket policy:", policyError);
+    } else {
+      console.log("Bucket policy created successfully");
+    }
+  } catch (error) {
+    console.error("Error creating bucket policy:", error);
+  }
+}

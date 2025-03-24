@@ -7,7 +7,7 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       throw new Error('Supabase client not initialized');
     }
     
-    // Check if bucket exists before uploading
+    // Verify bucket exists before uploading
     const { data: buckets, error: bucketError } = await supabase
       .storage
       .listBuckets();
@@ -23,17 +23,16 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       throw new Error('Storage bucket not found');
     }
     
-    // Create a clean filename
+    // Create a clean filename and unique path
     const timestamp = Date.now();
     const cleanFileName = file.name
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Remove accents
       .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
     
-    // Create a unique path
     const filePath = `${userId}/${timestamp}_${cleanFileName}`;
     
-    console.log("Attempting to upload file:", filePath);
+    console.log("Uploading file:", filePath);
     
     // Upload the file
     const { data, error: uploadError } = await supabase
