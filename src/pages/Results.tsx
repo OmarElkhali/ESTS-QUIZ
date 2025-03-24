@@ -9,6 +9,7 @@ import { Check, X, BarChart2, Home, Loader2, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 const Results = () => {
   const { id } = useParams<{ id: string }>();
@@ -91,6 +92,15 @@ const Results = () => {
     scoreColor = "text-orange-500";
   }
 
+  // Determine the progress bar color based on score
+  const progressBarClass = cn(
+    "h-3 mt-6",
+    score >= 80 ? "bg-green-500" : 
+    score >= 60 ? "bg-yellow-500" : 
+    score >= 40 ? "bg-orange-500" : 
+    "bg-red-500"
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Navbar />
@@ -120,16 +130,11 @@ const Results = () => {
                   <span className={`text-4xl font-bold ${scoreColor}`}>{score}%</span>
                 </div>
                 <p className={`text-lg font-semibold ${scoreColor}`}>{scoreText}</p>
-                <Progress
-                  value={score}
-                  className="h-3 mt-6"
-                  indicatorClassName={
-                    score >= 80 ? "bg-green-500" : 
-                    score >= 60 ? "bg-yellow-500" : 
-                    score >= 40 ? "bg-orange-500" : 
-                    "bg-red-500"
-                  }
-                />
+                
+                {/* Fixed Progress component usage by using className and the cn utility */}
+                <div className="relative w-full mt-6">
+                  <Progress value={score} className={progressBarClass} />
+                </div>
               </div>
             </div>
             
