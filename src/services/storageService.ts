@@ -3,6 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const uploadFileToSupabase = async (file: File, userId: string): Promise<string> => {
   try {
+    if (!file) {
+      throw new Error('No file provided for upload');
+    }
+    
+    if (!userId) {
+      throw new Error('User ID is required for upload');
+    }
+    
+    console.log("Starting file upload process:", file.name, "for user:", userId);
+    
     if (!supabase) {
       throw new Error('Supabase client not initialized');
     }
@@ -14,13 +24,23 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       
     if (bucketError) {
       console.error("Error checking buckets:", bucketError);
-      throw new Error('Unable to verify storage bucket');
+      throw new Error(`Unable to verify storage bucket: ${bucketError.message}`);
     }
     
     const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
     if (!bucketExists) {
       console.error("Bucket 'quiz-files' does not exist");
-      throw new Error('Storage bucket not found');
+      
+      // Attempt to create the bucket via edge function
+      console.log("Attempting to create bucket via edge function");
+      const { data, error } = await supabase.functions.invoke('create-storage-bucket');
+      
+      if (error || !data?.success) {
+        console.error("Failed to create bucket:", error || data?.error);
+        throw new Error('Storage bucket not found and could not be created automatically');
+      }
+      
+      console.log("Bucket created successfully:", data);
     }
     
     // Create a clean filename and unique path
@@ -32,7 +52,7 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     
     const filePath = `${userId}/${timestamp}_${cleanFileName}`;
     
-    console.log("Uploading file:", filePath);
+    console.log("Uploading file to path:", filePath);
     
     // Upload the file
     const { data, error: uploadError } = await supabase

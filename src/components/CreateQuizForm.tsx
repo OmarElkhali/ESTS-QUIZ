@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ export const CreateQuizForm = () => {
   const [bucketReady, setBucketReady] = useState(false);
   const [bucketLoading, setBucketLoading] = useState(true);
   const [bucketError, setBucketError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   const createBucket = async () => {
     setBucketLoading(true);
@@ -40,9 +42,9 @@ export const CreateQuizForm = () => {
       const { data, error } = await supabase.functions.invoke('create-storage-bucket');
       
       if (error) {
-        console.error('Error creating bucket:', error);
-        setBucketError(error.message || 'Erreur lors de la création du bucket de stockage');
-        toast.error('Erreur lors de la création du bucket de stockage');
+        console.error('Error calling edge function:', error);
+        setBucketError(`Erreur lors de l'appel de la fonction: ${error.message}`);
+        toast.error('Erreur lors de la configuration du stockage');
         return false;
       } 
       
@@ -69,8 +71,10 @@ export const CreateQuizForm = () => {
   };
   
   useEffect(() => {
-    createBucket();
-  }, []);
+    if (retryCount < 3) {
+      createBucket();
+    }
+  }, [retryCount]);
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -82,6 +86,7 @@ export const CreateQuizForm = () => {
   };
   
   const handleRetryBucketCreation = async () => {
+    setRetryCount(prev => prev + 1);
     await createBucket();
   };
   

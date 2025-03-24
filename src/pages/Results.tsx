@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ const Results = () => {
   const [quiz, setQuiz] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Get score and answers from location state, or use default values
   const score = location.state?.score ?? 0;
   const userAnswers = location.state?.answers ?? {};
 
@@ -92,7 +90,6 @@ const Results = () => {
     scoreColor = "text-orange-500";
   }
 
-  // Determine the progress bar color based on score
   const progressBarClass = cn(
     "h-3 mt-6",
     score >= 80 ? "bg-green-500" : 
@@ -131,7 +128,6 @@ const Results = () => {
                 </div>
                 <p className={`text-lg font-semibold ${scoreColor}`}>{scoreText}</p>
                 
-                {/* Fixed Progress component usage by using className and the cn utility */}
                 <div className="relative w-full mt-6">
                   <Progress value={score} className={progressBarClass} />
                 </div>
