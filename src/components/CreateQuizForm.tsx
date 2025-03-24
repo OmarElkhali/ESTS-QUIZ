@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,13 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { FileUpload } from '@/components/FileUpload';
-import { BrainCircuit, Share2, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { BrainCircuit, Share2, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { initializeBucket } from '@/integrations/supabase/client';
 
 const DEFAULT_API_KEY = "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";
 
@@ -28,66 +27,33 @@ export const CreateQuizForm = () => {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('openai');
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
-  const [bucketReady, setBucketReady] = useState(false);
-  const [bucketLoading, setBucketLoading] = useState(true);
-  const [bucketError, setBucketError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const [isInitializing, setIsInitializing] = useState(false);
   
-  const createBucket = async () => {
-    setBucketLoading(true);
-    setBucketError(null);
-    
+  // Initialize bucket when component loads
+  const ensureBucketExists = async () => {
+    setIsInitializing(true);
     try {
-      console.log('Calling edge function to create storage bucket');
-      const { data, error } = await supabase.functions.invoke('create-storage-bucket');
-      
-      if (error) {
-        console.error('Error calling edge function:', error);
-        setBucketError(`Erreur lors de l'appel de la fonction: ${error.message}`);
-        toast.error('Erreur lors de la configuration du stockage');
-        return false;
-      } 
-      
-      if (!data || !data.success) {
-        const errorMsg = data?.error || 'Échec de configuration du stockage';
-        console.error('Bucket creation unsuccessful:', errorMsg);
-        setBucketError(errorMsg);
-        toast.error(errorMsg);
-        return false;
+      const success = await initializeBucket();
+      if (!success) {
+        toast.error("Erreur lors de la configuration du stockage");
       }
-      
-      console.log('Storage bucket response:', data);
-      setBucketReady(true);
-      toast.success('Bucket de stockage configuré avec succès');
-      return true;
-    } catch (err: any) {
-      console.error('Failed to call create-storage-bucket function:', err);
-      setBucketError(err.message || 'Erreur lors de la configuration du stockage');
-      toast.error('Erreur lors de la configuration du stockage');
-      return false;
+    } catch (error) {
+      console.error("Error initializing bucket:", error);
+      toast.error("Erreur lors de la configuration du stockage");
     } finally {
-      setBucketLoading(false);
+      setIsInitializing(false);
     }
   };
-  
-  useEffect(() => {
-    if (retryCount < 3) {
-      createBucket();
-    }
-  }, [retryCount]);
   
   const handleFileSelect = (file: File) => {
     setFile(file);
     toast.success(`Fichier sélectionné: ${file.name}`);
+    // Ensure bucket is ready when file is selected
+    ensureBucketExists();
   };
   
   const handleNumQuestionsChange = (value: number[]) => {
     setNumQuestions(value[0]);
-  };
-  
-  const handleRetryBucketCreation = async () => {
-    setRetryCount(prev => prev + 1);
-    await createBucket();
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,13 +69,8 @@ export const CreateQuizForm = () => {
       return;
     }
     
-    if (!bucketReady) {
-      const success = await createBucket();
-      if (!success) {
-        toast.error("Le système de stockage n'est pas prêt. Veuillez réessayer.");
-        return;
-      }
-    }
+    // Final check to ensure bucket exists
+    await ensureBucketExists();
     
     try {
       console.log('Starting quiz creation process');
@@ -143,24 +104,6 @@ export const CreateQuizForm = () => {
         </div>
         <h2 className="text-2xl font-bold">Paramètres du Quiz</h2>
       </div>
-      
-      {bucketError && (
-        <Alert className="mb-6 bg-red-50 border-red-200">
-          <AlertDescription className="flex items-center justify-between">
-            <span>Erreur de stockage: {bucketError}</span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRetryBucketCreation}
-              disabled={bucketLoading}
-              className="ml-2"
-            >
-              {bucketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />} 
-              Réessayer
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
@@ -258,12 +201,12 @@ export const CreateQuizForm = () => {
           <Button 
             type="submit" 
             className="w-full btn-shine bg-[#D2691E] hover:bg-[#D2691E]/90"
-            disabled={isLoading || !file || !user || (selectedAI === 'openai' && !apiKey) || bucketLoading}
+            disabled={isLoading || isInitializing || !file || !user || (selectedAI === 'openai' && !apiKey)}
           >
-            {isLoading ? (
+            {isLoading || isInitializing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Génération en cours...
+                {isLoading ? "Génération en cours..." : "Initialisation..."}
               </>
             ) : (
               <>

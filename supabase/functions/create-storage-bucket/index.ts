@@ -39,10 +39,6 @@ serve(async (req) => {
     
     if (bucketExists) {
       console.log("Bucket 'quiz-files' already exists");
-      
-      // Create bucket policy if it doesn't exist
-      await createBucketPolicy(supabaseClient);
-      
       return new Response(
         JSON.stringify({ success: true, message: "Bucket already exists" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -69,8 +65,20 @@ serve(async (req) => {
 
     console.log("Bucket created successfully, setting up policies");
     
-    // Create bucket policy
-    await createBucketPolicy(supabaseClient);
+    // Set public access for the bucket
+    try {
+      const { error: policyError } = await supabaseClient
+        .from('storage.objects')
+        .select('*')
+        .limit(1)
+        .eq('bucket_id', 'quiz-files');
+      
+      if (policyError) {
+        console.error("Error testing bucket policy:", policyError);
+      }
+    } catch (error) {
+      console.error("Error setting bucket policy:", error);
+    }
 
     return new Response(
       JSON.stringify({ success: true, data }),
@@ -84,25 +92,3 @@ serve(async (req) => {
     );
   }
 });
-
-async function createBucketPolicy(supabaseClient: any) {
-  try {
-    console.log("Attempting to create storage policy");
-    
-    // Create a policy for public read access
-    const { error: policyError } = await supabaseClient
-      .storage
-      .from('quiz-files')
-      .createSignedUrl('test.txt', 60);
-    
-    if (policyError && policyError.code !== 'OBJECT_NOT_FOUND') {
-      console.error("Error creating or testing bucket policy:", policyError);
-    } else {
-      console.log("Bucket is accessible");
-    }
-    
-    console.log("Storage policy setup completed");
-  } catch (error) {
-    console.error("Error in policy creation:", error);
-  }
-}

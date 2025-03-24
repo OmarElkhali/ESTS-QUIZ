@@ -23,9 +23,47 @@ export const supabase = createClient<Database>(
   }
 );
 
+// Initialize bucket on client load
+export const initializeBucket = async () => {
+  try {
+    // Check if bucket exists
+    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    
+    if (bucketError) {
+      console.error("Error checking buckets:", bucketError);
+      return false;
+    }
+    
+    const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
+    if (bucketExists) {
+      console.log("Bucket 'quiz-files' exists");
+      return true;
+    }
+    
+    // Create bucket using edge function
+    console.log("Calling edge function to create bucket");
+    const { data, error } = await supabase.functions.invoke('create-storage-bucket');
+    
+    if (error || !data?.success) {
+      console.error("Failed to create bucket:", error || data?.error);
+      return false;
+    }
+    
+    console.log("Bucket created successfully");
+    return true;
+  } catch (err) {
+    console.error("Bucket initialization error:", err);
+    return false;
+  }
+};
+
 // Validate client initialization
 if (!supabase) {
   console.error("Failed to initialize Supabase client");
 } else {
   console.log("Supabase client initialized successfully");
+  // Initialize bucket when app starts
+  initializeBucket().then(success => {
+    console.log("Bucket initialization:", success ? "successful" : "failed");
+  });
 }

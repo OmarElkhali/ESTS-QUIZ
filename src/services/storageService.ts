@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, initializeBucket } from '@/integrations/supabase/client';
 
 export const uploadFileToSupabase = async (file: File, userId: string): Promise<string> => {
   try {
@@ -13,34 +13,10 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     
     console.log("Starting file upload process:", file.name, "for user:", userId);
     
-    if (!supabase) {
-      throw new Error('Supabase client not initialized');
-    }
-    
-    // Verify bucket exists before uploading
-    const { data: buckets, error: bucketError } = await supabase
-      .storage
-      .listBuckets();
-      
-    if (bucketError) {
-      console.error("Error checking buckets:", bucketError);
-      throw new Error(`Unable to verify storage bucket: ${bucketError.message}`);
-    }
-    
-    const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
-    if (!bucketExists) {
-      console.error("Bucket 'quiz-files' does not exist");
-      
-      // Attempt to create the bucket via edge function
-      console.log("Attempting to create bucket via edge function");
-      const { data, error } = await supabase.functions.invoke('create-storage-bucket');
-      
-      if (error || !data?.success) {
-        console.error("Failed to create bucket:", error || data?.error);
-        throw new Error('Storage bucket not found and could not be created automatically');
-      }
-      
-      console.log("Bucket created successfully:", data);
+    // Ensure bucket exists before uploading
+    const bucketReady = await initializeBucket();
+    if (!bucketReady) {
+      throw new Error('Storage bucket is not available. Please try again later.');
     }
     
     // Create a clean filename and unique path
