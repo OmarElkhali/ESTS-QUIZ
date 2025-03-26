@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { 
   collection, 
@@ -126,6 +127,19 @@ export const createQuiz = async (
 ): Promise<string> => {
   try {
     console.log('Creating quiz with title:', title);
+    
+    // Parse timeLimit to ensure it's a valid number or null
+    let parsedTimeLimit = null;
+    if (timeLimit !== undefined && timeLimit !== null) {
+      parsedTimeLimit = Number(timeLimit);
+      // Ensure it's a valid number
+      if (isNaN(parsedTimeLimit)) {
+        parsedTimeLimit = null;
+      }
+    }
+    
+    console.log(`Time limit set to: ${parsedTimeLimit} (original value: ${timeLimit})`);
+    
     const quizData = {
       userId,
       title,
@@ -134,12 +148,12 @@ export const createQuiz = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       completionRate: 0,
-      duration: timeLimit ? `${timeLimit} min` : `${Math.round(questions.length * 1.5)} min`,
+      duration: parsedTimeLimit ? `${parsedTimeLimit} min` : `${Math.round(questions.length * 1.5)} min`,
       participants: 0,
       collaborators: [],
       isShared: false,
       difficulty,
-      timeLimit
+      timeLimit: parsedTimeLimit // Use parsed value here
     };
     
     const docRef = await addDoc(collection(db, 'quizzes'), quizData);

@@ -74,6 +74,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       const title = file.name.split('.')[0];
       const description = additionalInfo || 'Quiz généré par IA basé sur vos documents.';
       
+      // Use explicit type casting for the timeLimit
       const quizId = await quizService.createQuiz(
         user.id,
         title,
@@ -95,7 +96,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       return quizId;
     } catch (error) {
       console.error('Error creating quiz:', error);
-      toast.error('Impossible de créer le quiz');
+      toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
       throw error;
     } finally {
       setIsLoading(false);

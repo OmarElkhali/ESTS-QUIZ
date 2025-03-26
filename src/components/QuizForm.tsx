@@ -21,6 +21,7 @@ export const QuizForm = () => {
   const [file, setFile] = useState<File | null>(null);
   const [numQuestions, setNumQuestions] = useState(10);
   const [additionalInfo, setAdditionalInfo] = useState('');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -41,7 +42,7 @@ export const QuizForm = () => {
     }
     
     try {
-      const quizId = await createQuiz(file, numQuestions, additionalInfo);
+      const quizId = await createQuiz(file, numQuestions, difficulty, undefined, additionalInfo);
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
       navigate(`/quiz/${quizId}`);
     } catch (error) {
@@ -67,6 +68,23 @@ export const QuizForm = () => {
         <div className="space-y-2">
           <Label htmlFor="file-upload">Télécharger votre document</Label>
           <FileUpload onFileSelect={handleFileSelect} />
+        </div>
+        
+        <div className="space-y-4">
+          <Label>Niveau de difficulté</Label>
+          <div className="flex space-x-2">
+            {(['easy', 'medium', 'hard'] as const).map((level) => (
+              <Button
+                key={level}
+                type="button"
+                variant={difficulty === level ? "default" : "outline"}
+                onClick={() => setDifficulty(level)}
+                className={difficulty === level ? "flex-1" : "flex-1"}
+              >
+                {level === 'easy' ? 'Facile' : level === 'medium' ? 'Moyen' : 'Difficile'}
+              </Button>
+            ))}
+          </div>
         </div>
         
         <div className="space-y-2">
