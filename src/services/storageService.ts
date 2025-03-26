@@ -19,11 +19,9 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       throw new Error('Storage bucket initialization failed. Please try again.');
     }
     
-    // Create a clean filename and unique path
+    // Create a unique path with timestamp
     const timestamp = Date.now();
     const cleanFileName = file.name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove accents
       .replace(/[^a-zA-Z0-9.]/g, '_'); // Replace special chars with underscore
     
     const filePath = `${userId}/${timestamp}_${cleanFileName}`;
@@ -42,10 +40,6 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
     if (uploadError) {
       console.error("Upload error:", uploadError);
       throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-    
-    if (!data) {
-      throw new Error('Upload completed but no data was returned');
     }
     
     // Get the public URL

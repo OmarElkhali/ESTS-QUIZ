@@ -29,29 +29,39 @@ export const CreateQuizForm = () => {
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
   const [isInitializing, setIsInitializing] = useState(false);
   const [bucketInitialized, setBucketInitialized] = useState(false);
+  const [initializationAttempts, setInitializationAttempts] = useState(0);
   
   // Initialize bucket when component loads
   useEffect(() => {
-    ensureBucketExists();
-  }, []);
+    if (!bucketInitialized && initializationAttempts < 3) {
+      ensureBucketExists();
+    }
+  }, [bucketInitialized, initializationAttempts]);
   
   const ensureBucketExists = async () => {
     if (bucketInitialized) return true;
+    if (isInitializing) return false;
     
     setIsInitializing(true);
     try {
+      console.log("Attempting bucket initialization...");
       const success = await initializeBucket();
       setBucketInitialized(success);
       
       if (!success) {
-        toast.error("Erreur lors de la configuration du stockage");
+        // Only show toast after multiple failures
+        if (initializationAttempts >= 2) {
+          toast.error("Erreur lors de la configuration du stockage. Réessayez plus tard.");
+        }
+        
+        setInitializationAttempts(prev => prev + 1);
         return false;
       }
       
       return true;
     } catch (error) {
       console.error("Error initializing bucket:", error);
-      toast.error("Erreur lors de la configuration du stockage");
+      setInitializationAttempts(prev => prev + 1);
       return false;
     } finally {
       setIsInitializing(false);

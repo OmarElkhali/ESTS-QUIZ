@@ -17,13 +17,10 @@ export const supabase = createClient<Database>(
       persistSession: true,
       autoRefreshToken: true,
     },
-    global: {
-      fetch: (url: RequestInfo | URL, init?: RequestInit) => fetch(url, init),
-    },
   }
 );
 
-// Initialize bucket on client load
+// More reliable bucket initialization
 export const initializeBucket = async (retries = 3): Promise<boolean> => {
   try {
     console.log("Starting bucket initialization...");
@@ -42,7 +39,23 @@ export const initializeBucket = async (retries = 3): Promise<boolean> => {
       return true;
     }
     
-    // Create bucket using edge function
+    // Since we can't create buckets directly via the client, try to use a workaround
+    // We'll create a fake file to see if the bucket already exists but isn't visible to listBuckets
+    const testFile = new Blob(['test'], { type: 'text/plain' });
+    const { error: uploadError } = await supabase
+      .storage
+      .from('quiz-files')
+      .upload('test.txt', testFile, { upsert: true });
+    
+    // If there's no error, the bucket must exist
+    if (!uploadError) {
+      console.log("Bucket exists and is working properly");
+      // Clean up test file
+      await supabase.storage.from('quiz-files').remove(['test.txt']);
+      return true;
+    }
+    
+    // If we get here, we need to create the bucket via the edge function
     console.log("Calling edge function to create bucket");
     const { data, error } = await supabase.functions.invoke('create-storage-bucket');
     
@@ -51,7 +64,7 @@ export const initializeBucket = async (retries = 3): Promise<boolean> => {
       
       // Retry logic
       if (retries > 0) {
-        console.log(`Retrying bucket creation (${retries} attempts left)...`);
+        console.log(`Retrying bucket initialization (${retries} attempts left)...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
         return initializeBucket(retries - 1);
       }

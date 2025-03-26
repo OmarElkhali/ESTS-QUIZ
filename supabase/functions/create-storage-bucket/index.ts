@@ -31,14 +31,14 @@ serve(async (req) => {
       );
     }
     
-    const supabaseClient = createClient(
+    const supabaseAdmin = createClient(
       supabaseUrl,
       supabaseServiceKey,
       { auth: { persistSession: false } }
     );
 
     // Check if bucket already exists
-    const { data: existingBuckets, error: listError } = await supabaseClient
+    const { data: existingBuckets, error: listError } = await supabaseAdmin
       .storage
       .listBuckets();
     
@@ -63,7 +63,7 @@ serve(async (req) => {
     console.log("Creating new bucket 'quiz-files'");
     
     // Create the bucket with public access
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabaseAdmin
       .storage
       .createBucket("quiz-files", {
         public: true,
@@ -76,6 +76,21 @@ serve(async (req) => {
         JSON.stringify({ success: false, error: error.message, code: error.code }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
+    }
+
+    // Set up public access policy for the bucket
+    try {
+      const createPolicyResponse = await supabaseAdmin.rpc('create_storage_policy', {
+        bucket_name: 'quiz-files',
+        policy_name: 'Public Access',
+        definition: 'true',
+        policy_for: 'SELECT'
+      });
+      
+      console.log("Public access policy created:", createPolicyResponse);
+    } catch (policyError) {
+      console.error("Error creating policy, but bucket was created:", policyError);
+      // Continue since the bucket was created
     }
 
     console.log("Bucket created successfully");
