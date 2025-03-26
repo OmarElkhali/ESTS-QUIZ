@@ -24,8 +24,10 @@ export const supabase = createClient<Database>(
 );
 
 // Initialize bucket on client load
-export const initializeBucket = async () => {
+export const initializeBucket = async (retries = 3): Promise<boolean> => {
   try {
+    console.log("Starting bucket initialization...");
+    
     // Check if bucket exists
     const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
     
@@ -36,7 +38,7 @@ export const initializeBucket = async () => {
     
     const bucketExists = buckets.some(bucket => bucket.name === 'quiz-files');
     if (bucketExists) {
-      console.log("Bucket 'quiz-files' exists");
+      console.log("Bucket 'quiz-files' exists and is ready to use");
       return true;
     }
     
@@ -44,8 +46,21 @@ export const initializeBucket = async () => {
     console.log("Calling edge function to create bucket");
     const { data, error } = await supabase.functions.invoke('create-storage-bucket');
     
-    if (error || !data?.success) {
-      console.error("Failed to create bucket:", error || data?.error);
+    if (error) {
+      console.error("Failed to invoke edge function:", error);
+      
+      // Retry logic
+      if (retries > 0) {
+        console.log(`Retrying bucket creation (${retries} attempts left)...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return initializeBucket(retries - 1);
+      }
+      
+      return false;
+    }
+    
+    if (!data?.success) {
+      console.error("Bucket creation was not successful:", data?.error);
       return false;
     }
     
@@ -53,6 +68,14 @@ export const initializeBucket = async () => {
     return true;
   } catch (err) {
     console.error("Bucket initialization error:", err);
+    
+    // Retry logic
+    if (retries > 0) {
+      console.log(`Retrying bucket initialization (${retries} attempts left)...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return initializeBucket(retries - 1);
+    }
+    
     return false;
   }
 };
@@ -64,6 +87,6 @@ if (!supabase) {
   console.log("Supabase client initialized successfully");
   // Initialize bucket when app starts
   initializeBucket().then(success => {
-    console.log("Bucket initialization:", success ? "successful" : "failed");
+    console.log("Initial bucket initialization:", success ? "successful" : "failed");
   });
 }

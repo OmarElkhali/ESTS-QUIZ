@@ -16,9 +16,24 @@ serve(async (req) => {
   try {
     console.log("Starting bucket creation process");
     
+    // Get Supabase credentials from environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing Supabase credentials");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Server configuration error: Missing required credentials" 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      supabaseUrl,
+      supabaseServiceKey,
       { auth: { persistSession: false } }
     );
 
@@ -47,7 +62,7 @@ serve(async (req) => {
 
     console.log("Creating new bucket 'quiz-files'");
     
-    // Create the bucket
+    // Create the bucket with public access
     const { data, error } = await supabaseClient
       .storage
       .createBucket("quiz-files", {
@@ -63,23 +78,8 @@ serve(async (req) => {
       );
     }
 
-    console.log("Bucket created successfully, setting up policies");
+    console.log("Bucket created successfully");
     
-    // Set public access for the bucket
-    try {
-      const { error: policyError } = await supabaseClient
-        .from('storage.objects')
-        .select('*')
-        .limit(1)
-        .eq('bucket_id', 'quiz-files');
-      
-      if (policyError) {
-        console.error("Error testing bucket policy:", policyError);
-      }
-    } catch (error) {
-      console.error("Error setting bucket policy:", error);
-    }
-
     return new Response(
       JSON.stringify({ success: true, data }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,18 +28,31 @@ export const CreateQuizForm = () => {
   const [selectedAI, setSelectedAI] = useState<'openai' | 'local'>('openai');
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [bucketInitialized, setBucketInitialized] = useState(false);
   
   // Initialize bucket when component loads
+  useEffect(() => {
+    ensureBucketExists();
+  }, []);
+  
   const ensureBucketExists = async () => {
+    if (bucketInitialized) return true;
+    
     setIsInitializing(true);
     try {
       const success = await initializeBucket();
+      setBucketInitialized(success);
+      
       if (!success) {
         toast.error("Erreur lors de la configuration du stockage");
+        return false;
       }
+      
+      return true;
     } catch (error) {
       console.error("Error initializing bucket:", error);
       toast.error("Erreur lors de la configuration du stockage");
+      return false;
     } finally {
       setIsInitializing(false);
     }
@@ -70,7 +83,11 @@ export const CreateQuizForm = () => {
     }
     
     // Final check to ensure bucket exists
-    await ensureBucketExists();
+    const bucketReady = await ensureBucketExists();
+    if (!bucketReady) {
+      toast.error("Impossible de configurer le stockage. Veuillez réessayer.");
+      return;
+    }
     
     try {
       console.log('Starting quiz creation process');

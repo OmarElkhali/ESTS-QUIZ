@@ -11,12 +11,12 @@ export const uploadFileToSupabase = async (file: File, userId: string): Promise<
       throw new Error('User ID is required for upload');
     }
     
-    console.log("Starting file upload process:", file.name, "for user:", userId);
+    console.log("Starting file upload process for:", file.name);
     
-    // Ensure bucket exists before uploading
+    // Ensure bucket exists before uploading (with retry)
     const bucketReady = await initializeBucket();
     if (!bucketReady) {
-      throw new Error('Storage bucket is not available. Please try again later.');
+      throw new Error('Storage bucket initialization failed. Please try again.');
     }
     
     // Create a clean filename and unique path
