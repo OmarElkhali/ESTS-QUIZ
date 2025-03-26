@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { FileUpload } from '@/components/FileUpload';
-import { BrainCircuit, Share2, ArrowRight, Loader2 } from 'lucide-react';
+import { BrainCircuit, Share2, ArrowRight, Loader2, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/card';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { initializeBucket } from '@/integrations/supabase/client';
 
 const DEFAULT_API_KEY = "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";
@@ -30,6 +31,9 @@ export const CreateQuizForm = () => {
   const [isInitializing, setIsInitializing] = useState(false);
   const [bucketInitialized, setBucketInitialized] = useState(false);
   const [initializationAttempts, setInitializationAttempts] = useState(0);
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [timeLimit, setTimeLimit] = useState(15); // Default time limit in minutes
+  const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   
   // Initialize bucket when component loads
   useEffect(() => {
@@ -79,6 +83,10 @@ export const CreateQuizForm = () => {
     setNumQuestions(value[0]);
   };
   
+  const handleTimeLimitChange = (value: number[]) => {
+    setTimeLimit(value[0]);
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -102,10 +110,13 @@ export const CreateQuizForm = () => {
     try {
       console.log('Starting quiz creation process');
       const apiKeyToUse = selectedAI === 'openai' ? apiKey : undefined;
+      const actualTimeLimit = enableTimeLimit ? timeLimit : undefined;
       
       const quizId = await createQuiz(
         file, 
-        numQuestions, 
+        numQuestions,
+        difficulty,
+        actualTimeLimit,
         additionalInfo,
         apiKeyToUse
       );
@@ -136,6 +147,77 @@ export const CreateQuizForm = () => {
         <div className="space-y-2">
           <Label htmlFor="file-upload">Télécharger votre document</Label>
           <FileUpload onFileSelect={handleFileSelect} />
+        </div>
+        
+        <div className="space-y-4">
+          <Label>Niveau de difficulté</Label>
+          <ToggleGroup 
+            type="single" 
+            value={difficulty}
+            onValueChange={(value) => value && setDifficulty(value as 'easy' | 'medium' | 'hard')}
+            className="flex justify-between w-full"
+          >
+            <ToggleGroupItem 
+              value="easy" 
+              className={`w-1/3 ${difficulty === 'easy' ? 'bg-green-500 text-white hover:bg-green-600' : ''}`}
+            >
+              Facile
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="medium" 
+              className={`w-1/3 ${difficulty === 'medium' ? 'bg-[#D2691E] text-white hover:bg-[#D2691E]/90' : ''}`}
+            >
+              Moyen
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="hard" 
+              className={`w-1/3 ${difficulty === 'hard' ? 'bg-red-500 text-white hover:bg-red-600' : ''}`}
+            >
+              Difficile
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Limite de temps</Label>
+            <input 
+              type="checkbox" 
+              id="enable-time-limit"
+              checked={enableTimeLimit}
+              onChange={(e) => setEnableTimeLimit(e.target.checked)}
+              className="ml-2 h-4 w-4"
+            />
+            <Label htmlFor="enable-time-limit" className="ml-1 text-sm">Activer</Label>
+          </div>
+          
+          {enableTimeLimit && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <Clock className="h-4 w-4 mr-2 text-[#D2691E]" />
+                  <span>Temps limite</span>
+                </div>
+                <span className="text-sm font-medium bg-[#D2691E]/10 text-[#D2691E] px-2 py-0.5 rounded-full">
+                  {timeLimit} minutes
+                </span>
+              </div>
+              <Slider
+                value={[timeLimit]}
+                min={5}
+                max={60}
+                step={5}
+                onValueChange={handleTimeLimitChange}
+                className="py-4"
+                disabled={!enableTimeLimit}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>5 min</span>
+                <span>30 min</span>
+                <span>60 min</span>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="space-y-4">

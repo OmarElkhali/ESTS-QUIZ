@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,10 +7,11 @@ import { useQuiz } from '@/hooks/useQuiz';
 import { Navbar } from '@/components/Navbar';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Clock, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Question } from '@/types/quiz';
+import { Progress } from '@/components/ui/progress';
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,10 @@ const Quiz = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quizLoading, setQuizLoading] = useState(true);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [timePercentage, setTimePercentage] = useState(100);
+  const [timeWarning, setTimeWarning] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const loadQuiz = async () => {
@@ -47,6 +52,12 @@ const Quiz = () => {
           initialAnswers[q.id] = '';
         });
         setAnswers(initialAnswers);
+
+        // Initialize timer if timeLimit is set
+        if (quizData.timeLimit) {
+          const timeInSeconds = quizData.timeLimit * 60;
+          setTimeRemaining(timeInSeconds);
+        }
       } catch (error) {
         console.error('Erreur lors du chargement du quiz:', error);
         toast.error("Impossible de charger le quiz");
@@ -56,7 +67,60 @@ const Quiz = () => {
     };
 
     loadQuiz();
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
   }, [id, getQuiz, navigate]);
+
+  // Initialize timer
+  useEffect(() => {
+    if (timeRemaining !== null && quiz && !timerRef.current) {
+      const totalTime = quiz.timeLimit * 60;
+      
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev === null) return null;
+          if (prev <= 0) {
+            clearInterval(timerRef.current!);
+            handleTimeUp();
+            return 0;
+          }
+          
+          // Calculate percentage of time remaining
+          const newPercentage = (prev / totalTime) * 100;
+          setTimePercentage(newPercentage);
+          
+          // Set warning when less than 20% of time remains
+          if (newPercentage < 20 && !timeWarning) {
+            setTimeWarning(true);
+            toast.warning("Moins de 20% du temps restant !");
+          }
+          
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [timeRemaining, quiz]);
+
+  const handleTimeUp = () => {
+    toast.error("Temps écoulé !");
+    handleSubmit();
+  };
+
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  };
 
   if (quizLoading) {
     return (
@@ -118,6 +182,11 @@ const Quiz = () => {
     
     setIsSubmitting(true);
     
+    // Stop the timer if it's running
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
     try {
       const score = await submitQuizAnswers(id!, answers);
       navigate(`/results/${id}`, { state: { score, answers } });
@@ -136,13 +205,67 @@ const Quiz = () => {
       <main className="flex-1 pt-16 pb-16 px-6">
         <div className="container mx-auto max-w-3xl">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold mb-2">{quiz.title}</h1>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-              <div className="bg-primary h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+            <div className="flex justify-between items-center mb-2">
+              <h1 className="text-2xl font-bold">{quiz.title}</h1>
+              
+              {timeRemaining !== null && (
+                <div className={`flex items-center ${
+                  timeWarning ? 'text-red-500 animate-pulse' : 'text-[#D2691E]'
+                }`}>
+                  <Clock className="mr-2 h-5 w-5" />
+                  <span className="font-mono font-bold">{formatTime(timeRemaining)}</span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Question {currentQuestionIndex + 1} sur {totalQuestions}</span>
-              <span>{Math.round(progress)}% complété</span>
+            
+            <div className="space-y-2">
+              {/* Time progress bar */}
+              {timeRemaining !== null && (
+                <div className="w-full space-y-1">
+                  <Progress 
+                    value={timePercentage} 
+                    className={`h-2 ${
+                      timePercentage > 50 
+                        ? 'bg-gray-200' 
+                        : timePercentage > 20 
+                          ? 'bg-orange-200' 
+                          : 'bg-red-200'
+                    }`}
+                  />
+                  <p className="text-xs text-right text-muted-foreground">
+                    Temps restant: {formatTime(timeRemaining)}
+                  </p>
+                </div>
+              )}
+              
+              {/* Question progress bar */}
+              <div className="w-full space-y-1">
+                <Progress 
+                  value={progress} 
+                  className="h-2 bg-gray-200"
+                />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Question {currentQuestionIndex + 1} sur {totalQuestions}</span>
+                  <span>{Math.round(progress)}% complété</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Difficulty badge */}
+            <div className="mt-2">
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                currentQuestion.difficulty === 'easy' 
+                  ? 'bg-green-100 text-green-800' 
+                  : currentQuestion.difficulty === 'medium'
+                    ? 'bg-[#D2691E]/10 text-[#D2691E]' 
+                    : 'bg-red-100 text-red-800'
+              }`}>
+                {currentQuestion.difficulty === 'easy' 
+                  ? 'Facile' 
+                  : currentQuestion.difficulty === 'medium' 
+                    ? 'Moyen' 
+                    : 'Difficile'}
+              </span>
             </div>
           </div>
           

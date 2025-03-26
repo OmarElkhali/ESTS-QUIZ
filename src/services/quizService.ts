@@ -20,7 +20,6 @@ import { uploadFileToSupabase } from './storageService';
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
   try {
     console.log('Starting file upload process for:', file.name);
-    // Use Supabase Storage instead of Firebase Storage
     const fileUrl = await uploadFileToSupabase(file, userId);
     console.log('File successfully uploaded to Supabase:', fileUrl);
     return fileUrl;
@@ -34,7 +33,6 @@ export const extractTextFromFile = async (fileUrl: string, fileType: string): Pr
   try {
     console.log(`Extracting text from ${fileUrl} (${fileType})`);
     
-    // For PDF files, we can use PDF.js or a similar library
     if (fileType.includes('pdf')) {
       try {
         const response = await fetch(fileUrl);
@@ -50,15 +48,11 @@ export const extractTextFromFile = async (fileUrl: string, fileType: string): Pr
       }
     }
     
-    // For .docx files
     if (fileType.includes('word') || fileType.includes('docx')) {
       try {
         const response = await fetch(fileUrl);
         if (!response.ok) throw new Error(`Failed to fetch DOCX: ${response.statusText}`);
         
-        // Since we can't directly parse DOCX in the browser, this would normally
-        // be handled by a backend service
-        // For now, return a placeholder text
         console.log("DOCX extraction would be handled by backend service");
         return "Ce document est un exemple de texte extrait d'un fichier Word. Il contient des informations sur l'intelligence artificielle et son impact sur la société moderne. L'IA transforme de nombreux secteurs comme la santé, l'éducation et les transports. Les algorithmes d'apprentissage automatique permettent d'analyser de grandes quantités de données et d'en extraire des connaissances précieuses.";
       } catch (error) {
@@ -67,7 +61,6 @@ export const extractTextFromFile = async (fileUrl: string, fileType: string): Pr
       }
     }
     
-    // For plain text files
     if (fileType.includes('text') || fileType.includes('txt')) {
       try {
         const response = await fetch(fileUrl);
@@ -82,42 +75,39 @@ export const extractTextFromFile = async (fileUrl: string, fileType: string): Pr
       }
     }
     
-    // Default fallback if file type is not supported
     return "Ce document contient des informations qui seront utilisées pour générer un quiz. Le contenu du document porte sur différents sujets académiques et professionnels. Les questions du quiz seront basées sur ces informations et testeront votre connaissance sur le sujet.";
   } catch (error) {
     console.error('Error extracting text:', error);
-    // Return a default text if extraction fails
     return "Ce document contient des informations qui seront utilisées pour générer un quiz. Le contenu du document porte sur différents sujets académiques et professionnels. Les questions du quiz seront basées sur ces informations et testeront votre connaissance sur le sujet.";
   }
 };
 
 const extractTextFromPDF = async (pdfBlob: Blob): Promise<string> => {
-  // This would be handled by a library like PDF.js
-  // For now, we'll return a placeholder
   return "Ce document PDF contient des informations sur les technologies émergentes comme la blockchain, l'IoT et l'informatique quantique. Ces technologies révolutionnent la façon dont nous interagissons avec le monde numérique. La blockchain offre un système de confiance décentralisé, l'IoT connecte des milliards d'appareils et l'informatique quantique promet de résoudre des problèmes aujourd'hui insolubles.";
 };
 
 export const generateQuizFromText = async (
   text: string, 
   numQuestions: number, 
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
   additionalInfo?: string,
   apiKey?: string
 ): Promise<Question[]> => {
   try {
     if (apiKey) {
-      // Utiliser OpenAI si une API key est fournie
       return await AIService.generateQuestionsWithOpenAI({
         text,
         numQuestions,
         additionalInfo,
+        difficulty,
         apiKey
       });
     } else {
-      // Utiliser la génération locale sans API key
       return await AIService.generateQuestionsLocally({
         text,
         numQuestions,
-        additionalInfo
+        additionalInfo,
+        difficulty
       });
     }
   } catch (error) {
@@ -130,7 +120,9 @@ export const createQuiz = async (
   userId: string, 
   title: string, 
   description: string, 
-  questions: Question[]
+  questions: Question[],
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  timeLimit?: number
 ): Promise<string> => {
   try {
     console.log('Creating quiz with title:', title);
@@ -142,10 +134,12 @@ export const createQuiz = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       completionRate: 0,
-      duration: `${Math.round(questions.length * 1.5)} min`,
+      duration: timeLimit ? `${timeLimit} min` : `${Math.round(questions.length * 1.5)} min`,
       participants: 0,
       collaborators: [],
       isShared: false,
+      difficulty,
+      timeLimit
     };
     
     const docRef = await addDoc(collection(db, 'quizzes'), quizData);
@@ -242,7 +236,6 @@ export const updateQuiz = async (
 ): Promise<void> => {
   const docRef = doc(db, 'quizzes', quizId);
   
-  // Remove fields that shouldn't be updated directly
   const { id, ...updateData } = updates;
   
   await updateDoc(docRef, {
@@ -260,14 +253,8 @@ export const shareQuiz = async (
   quizId: string, 
   collaboratorEmail: string
 ): Promise<void> => {
-  // In a real app, you would:
-  // 1. Look up the user by email
-  // 2. Add their ID to the collaborators array
-  // Here, we'll simulate this:
-  
   const docRef = doc(db, 'quizzes', quizId);
   
-  // For simulation purposes only - in a real app, get the actual userId
   const simulatedUserId = `user_${Math.random().toString(36).substring(2, 11)}`;
   
   await updateDoc(docRef, {
@@ -286,7 +273,6 @@ export const removeCollaborator = async (
     collaborators: arrayRemove(collaboratorId),
   });
   
-  // Check if there are any collaborators left
   const quizDoc = await getDoc(docRef);
   const collaborators = quizDoc.data()?.collaborators || [];
   
@@ -312,7 +298,6 @@ export const submitQuizAnswers = async (
   const quizData = quizDoc.data();
   const questions = quizData.questions;
   
-  // Calculate score
   let correctAnswers = 0;
   const totalQuestions = questions.length;
   
@@ -327,7 +312,6 @@ export const submitQuizAnswers = async (
   
   const score = Math.round((correctAnswers / totalQuestions) * 100);
   
-  // Store the result
   await addDoc(collection(db, 'quizResults'), {
     quizId,
     userId,
@@ -336,7 +320,6 @@ export const submitQuizAnswers = async (
     completedAt: serverTimestamp(),
   });
   
-  // Update the quiz completion rate to 100%
   await updateDoc(quizRef, {
     participants: quizData.participants + 1,
     completionRate: 100,

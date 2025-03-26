@@ -8,6 +8,7 @@ export interface Question {
     isCorrect: boolean;
   }[];
   explanation: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface Quiz {
@@ -21,6 +22,8 @@ export interface Quiz {
   participants?: number;
   collaborators?: string[];
   isShared?: boolean;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  timeLimit?: number;
 }
 
 export interface QuizContextType {
@@ -28,7 +31,7 @@ export interface QuizContextType {
   sharedQuizzes: Quiz[];
   currentQuiz: Quiz | null;
   isLoading: boolean;
-  createQuiz: (file: File, numQuestions: number, additionalInfo?: string, apiKey?: string) => Promise<string>;
+  createQuiz: (file: File, numQuestions: number, difficulty?: 'easy' | 'medium' | 'hard', timeLimit?: number, additionalInfo?: string, apiKey?: string) => Promise<string>;
   getQuiz: (id: string) => Promise<Quiz | null>;
   submitQuizAnswers: (quizId: string, answers: Record<string, string>) => Promise<number>;
   deleteQuiz: (id: string) => Promise<void>;

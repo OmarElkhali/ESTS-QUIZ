@@ -1,4 +1,3 @@
-
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -13,7 +12,6 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // Fetch quizzes when user changes
   useEffect(() => {
     if (user) {
       fetchQuizzes();
@@ -41,7 +39,14 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const createQuiz = async (file: File, numQuestions: number, additionalInfo?: string, apiKey?: string): Promise<string> => {
+  const createQuiz = async (
+    file: File, 
+    numQuestions: number, 
+    difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+    timeLimit?: number,
+    additionalInfo?: string, 
+    apiKey?: string
+  ): Promise<string> => {
     if (!user) {
       toast.error('Veuillez vous connecter pour créer un quiz');
       throw new Error('User not authenticated');
@@ -56,15 +61,16 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       // 2. Extract text from file
       const text = await quizService.extractTextFromFile(fileUrl, file.type);
       
-      // 3. Generate questions using AI (with or without API key)
+      // 3. Generate questions using AI (with difficulty level)
       const questions = await quizService.generateQuizFromText(
         text,
         numQuestions,
+        difficulty,
         additionalInfo,
         apiKey
       );
       
-      // 4. Save quiz to Firestore
+      // 4. Save quiz to Firestore with difficulty
       const title = file.name.split('.')[0];
       const description = additionalInfo || 'Quiz généré par IA basé sur vos documents.';
       
@@ -72,7 +78,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         user.id,
         title,
         description,
-        questions
+        questions,
+        difficulty,
+        timeLimit
       );
       
       // 5. Fetch the new quiz to get all fields
