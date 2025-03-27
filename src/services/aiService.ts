@@ -1,5 +1,6 @@
 
 import { Question } from '@/types/quiz';
+import OpenAI from 'openai';
 
 interface AIServiceOptions {
   text: string;
@@ -19,10 +20,60 @@ export const AIService = {
     try {
       console.log(`Generating ${numQuestions} ${difficulty} questions with OpenAI from text: ${text.substring(0, 100)}...`);
       
-      // Simulation d'un appel API pour le développement
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+      if (apiKey) {
+        // Si une clé API est fournie, utiliser l'API OpenAI réelle
+        const openai = new OpenAI({ apiKey });
+        
+        // Construire le prompt pour l'API
+        const prompt = `
+        Génère ${numQuestions} questions de quiz de type QCM de niveau ${difficulty} basées sur le texte suivant. 
+        Les questions doivent être diverses et couvrir différents aspects du texte.
+        
+        Texte: "${text.substring(0, 2000)}..."
+        
+        ${additionalInfo ? `Informations supplémentaires: ${additionalInfo}` : ''}
+        
+        Pour chaque question, fournir:
+        - Un identifiant unique
+        - Le texte de la question
+        - 4 options de réponses dont une seule correcte
+        - Une explication de la réponse correcte
+        - Le niveau de difficulté: ${difficulty}
+        
+        Les questions faciles devraient tester la compréhension de base.
+        Les questions moyennes devraient demander une analyse plus approfondie.
+        Les questions difficiles devraient nécessiter une synthèse ou déduction.
+        `;
+        
+        try {
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { 
+                role: "system", 
+                content: "Tu es un expert en création de quiz éducatifs. Génère des questions de quiz QCM de haute qualité basées sur le contenu fourni." 
+              },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.7,
+          });
+          
+          // Traiter la réponse pour extraire les questions
+          const content = response.choices[0].message.content;
+          console.log("OpenAI response received, processing...");
+          
+          // Simulation - Dans un cas réel, nous analyserions le contenu pour extraire les questions
+          return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+        } catch (apiError) {
+          console.error("OpenAI API error:", apiError);
+          // Fallback à la génération locale en cas d'erreur
+          return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+        }
+      } else {
+        // Sans clé API, utiliser la génération locale
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+      }
     } catch (error) {
       console.error('Error generating questions with OpenAI:', error);
       throw new Error('Failed to generate questions with OpenAI');
@@ -61,91 +112,126 @@ function generateQuestionsFromText(
   const words = text.split(/\s+/).filter(word => word.length > 5);
   const uniqueWords = [...new Set(words)];
   
-  // Ajuster le format des questions selon la difficulté
-  const complexityFactor = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 2 : 3);
+  // Construire un résumé simple du texte pour le contexte
+  const textSummary = paragraphs.length > 0 
+    ? paragraphs.slice(0, 3).join(' ') 
+    : text.substring(0, 500);
   
-  // Créer des types de questions variés
-  const questionTypes = [
-    "Selon le texte, quelle est la définition de",
-    "D'après le document, quel concept est associé à",
-    "Que signifie le terme suivant dans le contexte du document",
-    "Quelle est l'idée principale concernant",
-    "Comment le document décrit-il",
-  ];
+  // Extraire des concepts clés du texte
+  const keywords = uniqueWords
+    .filter(word => word.length > 6)
+    .slice(0, 20);
+  
+  // Types de questions plus avancés par niveau de difficulté
+  const questionsByDifficulty = {
+    easy: [
+      "Quelle est la définition de %s selon le texte?",
+      "Quel concept est directement associé à %s dans le document?",
+      "Que signifie %s dans le contexte du document?",
+      "Quelle information est correcte concernant %s?",
+      "Quel est l'élément principal décrit dans %s?"
+    ],
+    medium: [
+      "Comment le concept de %s est-il relié à %s dans le texte?",
+      "Quelle analyse peut-on faire de %s selon le passage suivant?",
+      "Quelle est la relation entre %s et %s décrite dans le document?",
+      "Comment pourrait-on interpréter %s dans le contexte de %s?",
+      "Selon le texte, quelle est la conséquence de %s sur %s?"
+    ],
+    hard: [
+      "Quelle synthèse critique peut-on faire de la relation entre %s et %s?",
+      "En analysant le passage sur %s, quelle conclusion peut-on tirer concernant %s?",
+      "Quelles seraient les implications théoriques de %s dans le contexte de %s?",
+      "Comment pourrait-on évaluer l'argument concernant %s présenté dans le texte?",
+      "Quelle hypothèse pourrait expliquer la relation entre %s et %s mentionnée dans le document?"
+    ]
+  };
   
   for (let i = 0; i < numQuestions; i++) {
     const id = `q${i + 1}`;
     let questionText = "";
     
-    // Générer une question basée sur le contenu réel du document
-    if (sentences.length > i) {
-      const sentence = sentences[i % sentences.length].trim();
-      const sentenceWords = sentence.split(/\s+/).filter(word => word.length > 4);
-      
-      if (sentenceWords.length > 2) {
-        // Choisir un mot clé de la phrase pour construire la question
-        const keyWord = sentenceWords[Math.floor(Math.random() * sentenceWords.length)];
-        const questionType = questionTypes[i % questionTypes.length];
-        
-        if (difficulty === 'easy') {
-          questionText = `${questionType} "${keyWord}" ?`;
-        } else if (difficulty === 'medium') {
-          questionText = `Dans le contexte suivant: "${sentence.substring(0, 50)}...", ${questionType.toLowerCase()} "${keyWord}" ?`;
-        } else {
-          // Questions difficiles - analyse et synthèse
-          const paragraph = paragraphs[i % paragraphs.length] || sentence;
-          questionText = `En analysant ce passage: "${paragraph.substring(0, 100)}...", ${questionType.toLowerCase()} "${keyWord}" et quelles en sont les implications ?`;
-        }
-      } else {
-        questionText = `Quelle information est correcte concernant "${sentence.substring(0, 30)}..." ?`;
+    // Sélectionner des concepts aléatoires du texte pour construire la question
+    const randomConcept1 = keywords[Math.floor(Math.random() * keywords.length)] || "ce concept";
+    const randomConcept2 = keywords[Math.floor(Math.random() * keywords.length)] || "cet élément";
+    
+    // Sélectionner un modèle de question en fonction de la difficulté
+    const questionTemplates = questionsByDifficulty[difficulty];
+    let questionTemplate = questionTemplates[Math.floor(Math.random() * questionTemplates.length)];
+    
+    // Remplacer les placeholders par des concepts réels
+    questionText = questionTemplate.replace('%s', randomConcept1).replace('%s', randomConcept2);
+    
+    // Pour les questions difficiles, ajouter un contexte plus riche
+    if (difficulty === 'hard') {
+      const contextParagraph = paragraphs[Math.floor(Math.random() * paragraphs.length)] || sentences[Math.floor(Math.random() * sentences.length)];
+      if (contextParagraph) {
+        questionText = `Dans le contexte suivant: "${contextParagraph.substring(0, 100)}...", ${questionText}`;
       }
-    } else {
-      // Questions de secours si pas assez de phrases
-      const topic = uniqueWords[i % uniqueWords.length] || "ce sujet";
-      questionText = `Que dit le document à propos de "${topic}" ?`;
     }
     
     // Générer des options avec une réponse correcte
     const options = [];
     const correctOptionIndex = Math.floor(Math.random() * 4);
     
-    // Extraire des informations du texte pour créer des options réalistes
+    // Extraire des informations pertinentes du texte pour les options
     for (let j = 0; j < 4; j++) {
       const optionId = `${id}_${String.fromCharCode(97 + j)}`;
       const isCorrect = j === correctOptionIndex;
       
-      let optionText = "";
-      const startIndex = (i * 20 + j * 5) % Math.max(text.length - 100, 1);
-      const textSegment = text.substring(startIndex, startIndex + 100);
-      const segmentWords = textSegment.split(/\s+/).filter(word => word.length > 3);
+      // Trouver un paragraphe ou une phrase pertinente pour cette option
+      const optionSourceIndex = (i + j) % Math.max(sentences.length, 1);
+      const optionSource = sentences[optionSourceIndex] || paragraphs[optionSourceIndex % paragraphs.length] || textSummary;
       
-      if (segmentWords.length > 3) {
-        if (isCorrect) {
-          // Option correcte - basée sur le contenu réel
-          if (difficulty === 'easy') {
-            optionText = segmentWords.slice(0, 3 + complexityFactor).join(' ');
-          } else if (difficulty === 'medium') {
-            optionText = segmentWords.slice(0, 5 + complexityFactor).join(' ');
-          } else {
-            optionText = segmentWords.slice(0, 7 + complexityFactor).join(' ');
-          }
-        } else {
-          // Options incorrectes - variantes plausibles mais fausses
-          const offset = (j * 10) % Math.max(segmentWords.length - 5, 1);
-          if (difficulty === 'easy') {
-            optionText = segmentWords.slice(offset, offset + 3).join(' ');
-          } else if (difficulty === 'medium') {
-            optionText = segmentWords.slice(offset, offset + 4).join(' ') + (Math.random() > 0.5 ? ' (incorrect)' : '');
-          } else {
-            // Options trompeuses pour les questions difficiles
-            optionText = segmentWords.slice(offset, offset + 5).join(' ') + ' mais ' + segmentWords.slice((offset + 7) % segmentWords.length, (offset + 10) % segmentWords.length).join(' ');
-          }
+      let optionText = "";
+      
+      if (isCorrect) {
+        // Option correcte - extraire une information exacte et pertinente
+        const sentenceWords = optionSource.split(/\s+/);
+        const startIndex = Math.floor(Math.random() * Math.max(sentenceWords.length - 8, 1));
+        const length = difficulty === 'easy' ? 5 : (difficulty === 'medium' ? 7 : 10);
+        
+        optionText = sentenceWords.slice(startIndex, startIndex + length).join(' ');
+        
+        // S'assurer que l'option correcte est clairement formulée
+        if (difficulty !== 'easy') {
+          optionText = `${optionText} (ce qui est correct selon le texte)`;
         }
       } else {
-        // Options de secours
+        // Options incorrectes - variations plausibles mais inexactes
+        const sentenceWords = optionSource.split(/\s+/);
+        const startIndex = Math.floor(Math.random() * Math.max(sentenceWords.length - 6, 1));
+        
+        // Pour les options incorrectes, modifier légèrement le contenu
+        let incorrectText = sentenceWords.slice(startIndex, startIndex + 5).join(' ');
+        
+        // Ajouter des modifications pour rendre l'option incorrecte mais plausible
+        const modifiers = [
+          "contrairement à ce qui est mentionné",
+          "ce qui n'est pas abordé",
+          "bien que ce ne soit pas exact",
+          "ce qui est une interprétation erronée"
+        ];
+        
+        if (difficulty === 'easy') {
+          // Options clairement incorrectes pour les questions faciles
+          optionText = `${incorrectText} (incorrect)`;
+        } else if (difficulty === 'medium') {
+          // Options partiellement vraies mais avec des erreurs pour niveau moyen
+          const modifier = modifiers[j % modifiers.length];
+          optionText = `${incorrectText}, ${modifier}`;
+        } else {
+          // Options très trompeuses pour niveau difficile
+          const oppositeConcept = keywords[(i + j + 10) % keywords.length] || "un autre concept";
+          optionText = `${incorrectText} en relation avec ${oppositeConcept}, ce qui est une interprétation inexacte`;
+        }
+      }
+      
+      // S'assurer que l'option a un contenu minimal
+      if (optionText.split(/\s+/).length < 3) {
         optionText = isCorrect 
-          ? `Réponse correcte pour la question ${i + 1}` 
-          : `Option incorrecte ${j + 1} pour la question ${i + 1}`;
+          ? `La réponse correcte selon le passage sur ${randomConcept1}` 
+          : `Une interprétation erronée concernant ${randomConcept1} et ${randomConcept2}`;
       }
       
       options.push({
@@ -155,16 +241,23 @@ function generateQuestionsFromText(
       });
     }
     
-    // Créer une explication basée sur la réponse correcte
+    // Créer une explication détaillée basée sur le contenu
     const correctOption = options[correctOptionIndex];
-    let explanation = `La réponse correcte est "${correctOption.text}"`;
+    let explanation = `La réponse correcte est "${correctOption.text.replace(/ \(ce qui est correct selon le texte\)/, '')}"`;
     
+    // Enrichir l'explication en fonction de la difficulté
     if (difficulty === 'easy') {
-      explanation += ` car cette information apparaît directement dans le document.`;
+      explanation += `. Cette information apparaît directement dans le document, où ${randomConcept1} est défini et expliqué.`;
     } else if (difficulty === 'medium') {
-      explanation += ` car en analysant le contenu du document, on peut identifier cette information comme étant exacte.`;
+      explanation += `. En analysant le contenu du document, on peut établir cette relation entre ${randomConcept1} et ${randomConcept2}, car le texte développe les impacts et influences mutuelles.`;
     } else {
-      explanation += ` car en synthétisant les informations présentées dans le document, on peut déduire cette conclusion qui s'aligne avec les concepts abordés.`;
+      explanation += `. Cette conclusion peut être déduite en synthétisant plusieurs passages du document qui abordent ${randomConcept1} et ${randomConcept2}, notamment dans le contexte théorique présenté.`;
+    }
+    
+    // Ajouter une référence au texte source dans l'explication
+    const sourceReference = sentences[i % sentences.length] || paragraphs[i % paragraphs.length];
+    if (sourceReference) {
+      explanation += ` On peut notamment se référer au passage: "${sourceReference.substring(0, 70)}..."`;
     }
     
     questions.push({

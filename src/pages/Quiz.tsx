@@ -158,10 +158,14 @@ const Quiz = () => {
 
   const handleAnswerChange = (optionId: string) => {
     console.log(`Réponse sélectionnée: ${optionId} pour la question ${currentQuestion.id}`);
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: optionId
-    }));
+    setAnswers(prev => {
+      const newAnswers = {
+        ...prev,
+        [currentQuestion.id]: optionId
+      };
+      console.log("Nouvelles réponses:", newAnswers);
+      return newAnswers;
+    });
   };
 
   const handleNextQuestion = () => {
@@ -292,7 +296,7 @@ const Quiz = () => {
               
               <CardContent>
                 <RadioGroup 
-                  value={answers[currentQuestion.id] || ''} 
+                  value={answers[currentQuestion.id] || ''}
                   onValueChange={handleAnswerChange}
                   className="space-y-3"
                 >
