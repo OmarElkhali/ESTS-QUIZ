@@ -7,11 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { FileUpload } from './FileUpload';
 import { toast } from 'sonner';
-import { BrainCircuit, Share2, ArrowRight, Loader2 } from 'lucide-react';
+import { BrainCircuit, Share2, ArrowRight, Loader2, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export const QuizForm = () => {
   const navigate = useNavigate();
@@ -22,6 +24,8 @@ export const QuizForm = () => {
   const [numQuestions, setNumQuestions] = useState(10);
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [enableTimeLimit, setEnableTimeLimit] = useState(false);
+  const [timeLimit, setTimeLimit] = useState(30); // minutes
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -42,11 +46,22 @@ export const QuizForm = () => {
     }
     
     try {
-      const quizId = await createQuiz(file, numQuestions, difficulty, undefined, additionalInfo);
+      console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}`);
+      console.log(`Limite de temps: ${enableTimeLimit ? timeLimit : 'non définie'}`);
+      
+      const quizId = await createQuiz(
+        file, 
+        numQuestions, 
+        difficulty, 
+        enableTimeLimit ? timeLimit : undefined, 
+        additionalInfo
+      );
+      
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
       navigate(`/quiz/${quizId}`);
     } catch (error) {
-      // Error is handled in the quiz context
+      console.error("Erreur lors de la création du quiz:", error);
+      // L'erreur est gérée dans le contexte de quiz
     }
   };
   
@@ -68,6 +83,9 @@ export const QuizForm = () => {
         <div className="space-y-2">
           <Label htmlFor="file-upload">Télécharger votre document</Label>
           <FileUpload onFileSelect={handleFileSelect} />
+          <p className="text-xs text-muted-foreground">
+            Formats acceptés: PDF, DOCX, TXT (max 10MB)
+          </p>
         </div>
         
         <div className="space-y-4">
@@ -108,6 +126,45 @@ export const QuizForm = () => {
             <span>25</span>
             <span>50</span>
           </div>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="enable-time-limit" 
+              checked={enableTimeLimit}
+              onCheckedChange={(checked) => setEnableTimeLimit(checked === true)}
+            />
+            <Label htmlFor="enable-time-limit">Activer une limite de temps</Label>
+          </div>
+          
+          {enableTimeLimit && (
+            <div className="flex items-center space-x-3 pl-6">
+              <div className="grid gap-1.5 flex-1">
+                <Label htmlFor="time-limit">Durée (minutes)</Label>
+                <Select 
+                  value={timeLimit.toString()}
+                  onValueChange={(value) => setTimeLimit(parseInt(value))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sélectionner une durée" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 minutes</SelectItem>
+                    <SelectItem value="30">30 minutes</SelectItem>
+                    <SelectItem value="45">45 minutes</SelectItem>
+                    <SelectItem value="60">1 heure</SelectItem>
+                    <SelectItem value="90">1h30</SelectItem>
+                    <SelectItem value="120">2 heures</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-1 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm">{timeLimit} min</span>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="space-y-2">

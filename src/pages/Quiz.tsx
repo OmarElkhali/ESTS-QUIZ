@@ -45,18 +45,21 @@ const Quiz = () => {
         }
         
         setQuiz(quizData);
+        console.log("Quiz chargé:", quizData);
         
-        // Initialize answers object
+        // Initialisation des réponses
         const initialAnswers: Record<string, string> = {};
         quizData.questions.forEach((q: Question) => {
           initialAnswers[q.id] = '';
         });
         setAnswers(initialAnswers);
+        console.log("Réponses initialisées:", initialAnswers);
 
-        // Initialize timer if timeLimit is set
+        // Initialisation du timer si timeLimit est défini
         if (quizData.timeLimit) {
           const timeInSeconds = quizData.timeLimit * 60;
           setTimeRemaining(timeInSeconds);
+          console.log(`Temps limite défini: ${quizData.timeLimit} minutes (${timeInSeconds} secondes)`);
         }
       } catch (error) {
         console.error('Erreur lors du chargement du quiz:', error);
@@ -75,10 +78,11 @@ const Quiz = () => {
     };
   }, [id, getQuiz, navigate]);
 
-  // Initialize timer
+  // Initialisation du timer
   useEffect(() => {
     if (timeRemaining !== null && quiz && !timerRef.current) {
       const totalTime = quiz.timeLimit * 60;
+      console.log(`Initialisation du timer: ${totalTime} secondes au total`);
       
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
@@ -89,11 +93,11 @@ const Quiz = () => {
             return 0;
           }
           
-          // Calculate percentage of time remaining
+          // Calcul du pourcentage de temps restant
           const newPercentage = (prev / totalTime) * 100;
           setTimePercentage(newPercentage);
           
-          // Set warning when less than 20% of time remains
+          // Avertissement lorsqu'il reste moins de 20% du temps
           if (newPercentage < 20 && !timeWarning) {
             setTimeWarning(true);
             toast.warning("Moins de 20% du temps restant !");
@@ -153,10 +157,11 @@ const Quiz = () => {
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
 
   const handleAnswerChange = (optionId: string) => {
-    setAnswers({
-      ...answers,
+    console.log(`Réponse sélectionnée: ${optionId} pour la question ${currentQuestion.id}`);
+    setAnswers(prev => ({
+      ...prev,
       [currentQuestion.id]: optionId
-    });
+    }));
   };
 
   const handleNextQuestion = () => {
@@ -172,7 +177,7 @@ const Quiz = () => {
   };
 
   const handleSubmit = async () => {
-    // Check if all questions are answered
+    // Vérifier si toutes les questions ont reçu une réponse
     const unansweredQuestions = Object.values(answers).filter(answer => !answer).length;
     
     if (unansweredQuestions > 0) {
@@ -181,14 +186,16 @@ const Quiz = () => {
     }
     
     setIsSubmitting(true);
+    console.log("Soumission des réponses:", answers);
     
-    // Stop the timer if it's running
+    // Arrêter le timer s'il est en cours
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
     
     try {
       const score = await submitQuizAnswers(id!, answers);
+      console.log(`Quiz terminé avec un score de ${score}%`);
       navigate(`/results/${id}`, { state: { score, answers } });
     } catch (error) {
       console.error('Erreur lors de la soumission du quiz:', error);
@@ -219,7 +226,7 @@ const Quiz = () => {
             </div>
             
             <div className="space-y-2">
-              {/* Time progress bar */}
+              {/* Barre de progression du temps */}
               {timeRemaining !== null && (
                 <div className="w-full space-y-1">
                   <Progress 
@@ -238,7 +245,7 @@ const Quiz = () => {
                 </div>
               )}
               
-              {/* Question progress bar */}
+              {/* Barre de progression des questions */}
               <div className="w-full space-y-1">
                 <Progress 
                   value={progress} 
@@ -251,7 +258,7 @@ const Quiz = () => {
               </div>
             </div>
             
-            {/* Difficulty badge */}
+            {/* Badge de difficulté */}
             <div className="mt-2">
               <span className={`text-xs font-medium px-2 py-1 rounded-full ${
                 currentQuestion.difficulty === 'easy' 
@@ -285,7 +292,7 @@ const Quiz = () => {
               
               <CardContent>
                 <RadioGroup 
-                  value={answers[currentQuestion.id]} 
+                  value={answers[currentQuestion.id] || ''} 
                   onValueChange={handleAnswerChange}
                   className="space-y-3"
                 >

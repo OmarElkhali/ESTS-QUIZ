@@ -19,11 +19,9 @@ export const AIService = {
     try {
       console.log(`Generating ${numQuestions} ${difficulty} questions with OpenAI from text: ${text.substring(0, 100)}...`);
       
-      // This would actually call the OpenAI API in a real implementation
-      // For demo purposes, we'll generate better mock questions based on the text
+      // Simulation d'un appel API pour le développement
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Generate questions based on the text content and difficulty
       return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
     } catch (error) {
       console.error('Error generating questions with OpenAI:', error);
@@ -37,10 +35,9 @@ export const AIService = {
     try {
       console.log(`Generating ${numQuestions} ${difficulty} questions locally from text: ${text.substring(0, 100)}...`);
       
-      // Simulate processing time
+      // Simulation du temps de traitement
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Generate questions based on the text content and difficulty
       return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
     } catch (error) {
       console.error('Error generating questions locally:', error);
@@ -49,7 +46,7 @@ export const AIService = {
   }
 };
 
-// Helper function to generate questions based on text content and difficulty
+// Fonction améliorée pour générer des questions basées sur le contenu du texte
 function generateQuestionsFromText(
   text: string, 
   numQuestions: number, 
@@ -58,70 +55,97 @@ function generateQuestionsFromText(
 ): Question[] {
   const questions: Question[] = [];
   
-  // Extract some keywords from the text to make questions more relevant
+  // Extraire des mots clés et phrases significatives du texte
+  const paragraphs = text.split('\n').filter(p => p.trim().length > 20);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
   const words = text.split(/\s+/).filter(word => word.length > 5);
   const uniqueWords = [...new Set(words)];
   
-  // Sample sentences from the text (simplified approach)
-  const sentences = text.split(/[.!?]+/).filter(sentence => sentence.trim().length > 30);
-  
-  // Adjust complexity based on difficulty
+  // Ajuster le format des questions selon la difficulté
   const complexityFactor = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 2 : 3);
+  
+  // Créer des types de questions variés
+  const questionTypes = [
+    "Selon le texte, quelle est la définition de",
+    "D'après le document, quel concept est associé à",
+    "Que signifie le terme suivant dans le contexte du document",
+    "Quelle est l'idée principale concernant",
+    "Comment le document décrit-il",
+  ];
   
   for (let i = 0; i < numQuestions; i++) {
     const id = `q${i + 1}`;
-    
-    // Create a question based on the text and difficulty
     let questionText = "";
     
+    // Générer une question basée sur le contenu réel du document
     if (sentences.length > i) {
-      // Use a sentence from the text as base for the question
       const sentence = sentences[i % sentences.length].trim();
-      const words = sentence.split(/\s+/);
+      const sentenceWords = sentence.split(/\s+/).filter(word => word.length > 4);
       
-      if (words.length > 5) {
+      if (sentenceWords.length > 2) {
+        // Choisir un mot clé de la phrase pour construire la question
+        const keyWord = sentenceWords[Math.floor(Math.random() * sentenceWords.length)];
+        const questionType = questionTypes[i % questionTypes.length];
+        
         if (difficulty === 'easy') {
-          // Easy: Simple recall questions
-          questionText = `Question ${i + 1}: Selon le texte, que signifie "${words[Math.floor(words.length / 2)]}" dans ce contexte?`;
+          questionText = `${questionType} "${keyWord}" ?`;
         } else if (difficulty === 'medium') {
-          // Medium: Understanding concepts
-          const wordToReplace = words[Math.floor(words.length / 2)];
-          questionText = `Question ${i + 1}: Dans la phrase "${sentence}", quel mot pourrait remplacer "${wordToReplace}" tout en conservant le sens du texte?`;
+          questionText = `Dans le contexte suivant: "${sentence.substring(0, 50)}...", ${questionType.toLowerCase()} "${keyWord}" ?`;
         } else {
-          // Hard: Analysis and synthesis
-          questionText = `Question ${i + 1}: Quelle conclusion peut-on tirer de la phrase suivante: "${sentence}"?`;
+          // Questions difficiles - analyse et synthèse
+          const paragraph = paragraphs[i % paragraphs.length] || sentence;
+          questionText = `En analysant ce passage: "${paragraph.substring(0, 100)}...", ${questionType.toLowerCase()} "${keyWord}" et quelles en sont les implications ?`;
         }
       } else {
-        questionText = `Question ${i + 1}: Quelle information peut-on trouver dans le texte concernant ${words[0] || "ce sujet"}?`;
+        questionText = `Quelle information est correcte concernant "${sentence.substring(0, 30)}..." ?`;
       }
     } else {
-      // Fallback if we don't have enough sentences
-      const keyword = uniqueWords[i % uniqueWords.length] || "sujet";
-      questionText = `Question ${i + 1}: Que dit le document à propos de "${keyword}"?`;
+      // Questions de secours si pas assez de phrases
+      const topic = uniqueWords[i % uniqueWords.length] || "ce sujet";
+      questionText = `Que dit le document à propos de "${topic}" ?`;
     }
     
-    // Generate options based on available words from the text
+    // Générer des options avec une réponse correcte
     const options = [];
-    const correctOptionIndex = Math.floor(Math.random() * 4); // Random correct answer
+    const correctOptionIndex = Math.floor(Math.random() * 4);
     
-    // Make options more complex based on difficulty
+    // Extraire des informations du texte pour créer des options réalistes
     for (let j = 0; j < 4; j++) {
       const optionId = `${id}_${String.fromCharCode(97 + j)}`;
       const isCorrect = j === correctOptionIndex;
       
       let optionText = "";
-      if (uniqueWords.length > (i * 4 + j)) {
-        // Create more complex options based on difficulty
-        if (difficulty === 'easy') {
-          optionText = `${uniqueWords[i * 4 + j]}`;
-        } else if (difficulty === 'medium') {
-          optionText = `${uniqueWords[i * 4 + j]} ${uniqueWords[(i * 4 + j + 5) % uniqueWords.length] || ''}`;
+      const startIndex = (i * 20 + j * 5) % Math.max(text.length - 100, 1);
+      const textSegment = text.substring(startIndex, startIndex + 100);
+      const segmentWords = textSegment.split(/\s+/).filter(word => word.length > 3);
+      
+      if (segmentWords.length > 3) {
+        if (isCorrect) {
+          // Option correcte - basée sur le contenu réel
+          if (difficulty === 'easy') {
+            optionText = segmentWords.slice(0, 3 + complexityFactor).join(' ');
+          } else if (difficulty === 'medium') {
+            optionText = segmentWords.slice(0, 5 + complexityFactor).join(' ');
+          } else {
+            optionText = segmentWords.slice(0, 7 + complexityFactor).join(' ');
+          }
         } else {
-          // Hard: more complex options
-          optionText = `${uniqueWords[i * 4 + j]} ${uniqueWords[(i * 4 + j + 5) % uniqueWords.length] || ''} ${uniqueWords[(i * 4 + j + 10) % uniqueWords.length] || ''}`;
+          // Options incorrectes - variantes plausibles mais fausses
+          const offset = (j * 10) % Math.max(segmentWords.length - 5, 1);
+          if (difficulty === 'easy') {
+            optionText = segmentWords.slice(offset, offset + 3).join(' ');
+          } else if (difficulty === 'medium') {
+            optionText = segmentWords.slice(offset, offset + 4).join(' ') + (Math.random() > 0.5 ? ' (incorrect)' : '');
+          } else {
+            // Options trompeuses pour les questions difficiles
+            optionText = segmentWords.slice(offset, offset + 5).join(' ') + ' mais ' + segmentWords.slice((offset + 7) % segmentWords.length, (offset + 10) % segmentWords.length).join(' ');
+          }
         }
       } else {
-        optionText = `Option ${String.fromCharCode(65 + j)} pour la question ${i + 1}`;
+        // Options de secours
+        optionText = isCorrect 
+          ? `Réponse correcte pour la question ${i + 1}` 
+          : `Option incorrecte ${j + 1} pour la question ${i + 1}`;
       }
       
       options.push({
@@ -131,16 +155,16 @@ function generateQuestionsFromText(
       });
     }
     
-    // Create explanation based on the correct answer and difficulty
+    // Créer une explication basée sur la réponse correcte
     const correctOption = options[correctOptionIndex];
     let explanation = `La réponse correcte est "${correctOption.text}"`;
     
     if (difficulty === 'easy') {
-      explanation += ` car c'est l'élément mentionné dans le document.`;
+      explanation += ` car cette information apparaît directement dans le document.`;
     } else if (difficulty === 'medium') {
-      explanation += ` car cela correspond au contexte du document et reflète l'information présentée.`;
+      explanation += ` car en analysant le contenu du document, on peut identifier cette information comme étant exacte.`;
     } else {
-      explanation += ` car en analysant le contenu du document, on peut déduire cette conclusion logique qui s'aligne avec les concepts présentés.`;
+      explanation += ` car en synthétisant les informations présentées dans le document, on peut déduire cette conclusion qui s'aligne avec les concepts abordés.`;
     }
     
     questions.push({
