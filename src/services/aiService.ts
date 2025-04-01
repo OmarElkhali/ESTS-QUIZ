@@ -18,101 +18,189 @@ export const AIService = {
     const { text, numQuestions, additionalInfo, apiKey, difficulty = 'medium' } = options;
     
     try {
-      console.log(`Generating ${numQuestions} ${difficulty} questions with OpenAI from text: ${text.substring(0, 100)}...`);
+      console.log(`Generating ${numQuestions} ${difficulty} questions with OpenAI from text of length ${text.length}`);
       
       if (!apiKey) {
-        console.log('No API key provided, falling back to local generation');
+        console.error('Aucune clé API fournie pour OpenAI');
         return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
       }
       
       // Initialize OpenAI client
       const openai = new OpenAI({ apiKey });
       
-      // Construire le prompt pour l'API
+      // Construire un prompt optimisé pour l'extraction de questions QCM
       const prompt = `
-      Génère ${numQuestions} questions de quiz de type QCM de niveau ${difficulty} basées sur le texte suivant. 
-      Les questions doivent être diverses et couvrir différents aspects du texte.
+      Génère ${numQuestions} questions de quiz QCM basées sur le texte fourni.
+      Niveau de difficulté: ${difficulty}
       
-      Texte: "${text.substring(0, 2000)}..."
+      Texte: """${text.slice(0, 3000)}"""
       
       ${additionalInfo ? `Informations supplémentaires: ${additionalInfo}` : ''}
       
-      Pour chaque question, fournir:
-      - Un identifiant unique
-      - Le texte de la question
-      - 4 options de réponses dont une seule correcte
-      - Une explication de la réponse correcte
-      - Le niveau de difficulté: ${difficulty}
+      INSTRUCTIONS IMPORTANTES:
+      1. Chaque question doit provenir directement du texte fourni
+      2. Les questions doivent être diverses et couvrir différents aspects du texte
+      3. Pour chaque question, crée 4 options avec UNE SEULE réponse correcte
+      4. Niveau ${difficulty}: ${
+        difficulty === 'easy' 
+          ? 'questions basiques testant la compréhension générale' 
+          : difficulty === 'medium' 
+            ? 'questions plus nuancées nécessitant une bonne compréhension' 
+            : 'questions complexes nécessitant une analyse approfondie'
+      }
+      5. Fournis une explication claire pour chaque réponse correcte
       
-      Format de réponse JSON:
+      FORMAT DE RÉPONSE:
+      Tu dois fournir uniquement un tableau JSON valide contenant les questions, sans aucun texte supplémentaire:
+      
       [
         {
           "id": "q1",
-          "text": "Texte de la question?",
+          "text": "Question 1?",
           "options": [
             {"id": "q1_a", "text": "Option A", "isCorrect": false},
             {"id": "q1_b", "text": "Option B", "isCorrect": true},
             {"id": "q1_c", "text": "Option C", "isCorrect": false},
             {"id": "q1_d", "text": "Option D", "isCorrect": false}
           ],
-          "explanation": "Explication pourquoi B est correcte",
+          "explanation": "Explication pourquoi B est correct",
           "difficulty": "${difficulty}"
         },
-        ...
+        // autres questions...
       ]
       `;
       
       try {
-        console.log('Calling OpenAI API...');
+        console.log('Appel de l\'API OpenAI...');
         const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: "gpt-4o-mini", // Utilisation d'un modèle plus récent et plus performant
           messages: [
             { 
               role: "system", 
-              content: "Tu es un expert en création de quiz éducatifs. Génère des questions de quiz QCM de haute qualité basées sur le contenu fourni. Réponds uniquement au format JSON demandé." 
+              content: "Tu es un expert en création de quiz éducatifs. Ta tâche est de générer des questions QCM de haute qualité basées uniquement sur le contenu fourni. Respecte STRICTEMENT le format demandé." 
             },
             { role: "user", content: prompt }
           ],
-          temperature: 0.7,
-          response_format: { type: "json_object" },
+          temperature: 0.5, // Plus déterministe pour des questions plus précises
+          response_format: { type: "json_object" }, // Force le format JSON
         });
         
         // Récupérer le contenu de la réponse
         const content = response.choices[0].message.content;
-        console.log("OpenAI response received:", content ? content.substring(0, 100) + "..." : "Empty response");
+        console.log("Réponse OpenAI reçue, taille:", content ? content.length : 0);
         
         if (!content) {
-          throw new Error("Empty response from OpenAI");
+          console.error("Réponse vide de OpenAI");
+          throw new Error("Réponse vide de l'API");
         }
         
         try {
           // Parser la réponse JSON
-          const parsedResponse = JSON.parse(content);
+          const parsedContent = JSON.parse(content);
+          let questions = [];
           
-          if (parsedResponse.questions && Array.isArray(parsedResponse.questions)) {
-            console.log(`Successfully parsed ${parsedResponse.questions.length} questions from OpenAI`);
-            return parsedResponse.questions;
-          } else if (Array.isArray(parsedResponse)) {
-            console.log(`Successfully parsed ${parsedResponse.length} questions from array response`);
-            return parsedResponse;
+          // Gérer les différents formats possibles retournés par l'API
+          if (Array.isArray(parsedContent)) {
+            questions = parsedContent;
+            console.log(`Succès: ${questions.length} questions extraites du tableau JSON`);
+          } else if (parsedContent.questions && Array.isArray(parsedContent.questions)) {
+            questions = parsedContent.questions;
+            console.log(`Succès: ${questions.length} questions extraites de l'objet JSON`);
           } else {
-            console.error("Unexpected response format:", parsedResponse);
-            throw new Error("Unexpected response format from OpenAI");
+            console.error("Format de réponse inattendu:", JSON.stringify(parsedContent).substring(0, 200));
+            
+            // Recherche de tout tableau qui pourrait contenir des questions
+            const possibleArrays = Object.values(parsedContent).filter(val => Array.isArray(val));
+            if (possibleArrays.length > 0) {
+              questions = possibleArrays[0];
+              console.log(`Récupération de secours: ${questions.length} questions trouvées dans un champ alternatif`);
+            } else {
+              throw new Error("Format de réponse incompatible");
+            }
           }
+          
+          // Validation des données reçues
+          const validatedQuestions = questions.map((q: any, index: number) => {
+            // S'assurer que chaque question a un ID unique
+            const questionId = q.id || `q${index + 1}`;
+            
+            // Vérifier si les options sont valides
+            const validOptions = Array.isArray(q.options) && q.options.length >= 2;
+            
+            // S'assurer qu'il y a exactement une réponse correcte
+            const correctOptions = validOptions ? q.options.filter((o: any) => o.isCorrect === true) : [];
+            if (correctOptions.length !== 1) {
+              // Corriger les options si nécessaire
+              if (validOptions) {
+                // Marquer la première option comme correcte si aucune n'est correcte
+                q.options[0].isCorrect = true;
+                // Assurer que les autres sont incorrectes
+                for (let i = 1; i < q.options.length; i++) {
+                  q.options[i].isCorrect = false;
+                }
+              }
+            }
+            
+            // Générer des IDs pour les options si nécessaire
+            const options = validOptions 
+              ? q.options.map((o: any, optIndex: number) => ({
+                  id: o.id || `${questionId}_${String.fromCharCode(97 + optIndex)}`,
+                  text: o.text || `Option ${String.fromCharCode(65 + optIndex)}`,
+                  isCorrect: Boolean(o.isCorrect)
+                }))
+              : [
+                  { id: `${questionId}_a`, text: "Option A", isCorrect: true },
+                  { id: `${questionId}_b`, text: "Option B", isCorrect: false },
+                  { id: `${questionId}_c`, text: "Option C", isCorrect: false },
+                  { id: `${questionId}_d`, text: "Option D", isCorrect: false }
+                ];
+            
+            return {
+              id: questionId,
+              text: q.text || `Question ${index + 1}?`,
+              options: options,
+              explanation: q.explanation || "Aucune explication fournie",
+              difficulty: q.difficulty || difficulty
+            };
+          });
+          
+          console.log(`${validatedQuestions.length} questions validées et prêtes à l'emploi`);
+          return validatedQuestions;
+          
         } catch (parseError) {
-          console.error("Error parsing OpenAI response:", parseError);
-          console.log("Raw response:", content);
-          // Fallback to local generation
+          console.error("Erreur d'analyse de la réponse OpenAI:", parseError);
+          console.log("Réponse brute (100 premiers caractères):", content.substring(0, 100));
+          
+          // Tentative de récupération des questions depuis le texte
+          try {
+            // Recherche de structure JSON dans la réponse textuelle
+            const jsonRegex = /\[\s*\{.*?\}\s*\]/gs;
+            const match = content.match(jsonRegex);
+            
+            if (match && match[0]) {
+              console.log("Tentative de récupération du JSON depuis le texte");
+              const extractedJson = match[0];
+              const extractedQuestions = JSON.parse(extractedJson);
+              
+              if (Array.isArray(extractedQuestions) && extractedQuestions.length > 0) {
+                console.log(`Récupération réussie: ${extractedQuestions.length} questions extraites`);
+                return extractedQuestions;
+              }
+            }
+          } catch (recoveryError) {
+            console.error("Échec de récupération JSON:", recoveryError);
+          }
+          
+          // Fallback à la génération locale si toutes les tentatives échouent
+          console.log("Utilisation du générateur local comme fallback");
           return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
         }
       } catch (apiError) {
-        console.error("OpenAI API error:", apiError);
-        // Fallback to local generation
+        console.error("Erreur d'API OpenAI:", apiError.message || apiError);
         return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
       }
     } catch (error) {
-      console.error('Error generating questions with OpenAI:', error);
-      // Always return something to prevent complete failure
+      console.error('Erreur globale de génération avec OpenAI:', error);
       return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
     }
   },
@@ -121,15 +209,10 @@ export const AIService = {
     const { text, numQuestions, additionalInfo, difficulty = 'medium' } = options;
     
     try {
-      console.log(`Generating ${numQuestions} ${difficulty} questions locally from text: ${text.substring(0, 100)}...`);
-      
-      // Simulation du temps de traitement
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      console.log(`Génération locale de ${numQuestions} questions ${difficulty}`);
       return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
     } catch (error) {
-      console.error('Error generating questions locally:', error);
-      // Ensure we never throw an error that would cause the quiz creation to fail
+      console.error('Erreur génération locale:', error);
       return generateFallbackQuestions(numQuestions, difficulty);
     }
   }
@@ -137,7 +220,7 @@ export const AIService = {
 
 // Generate fallback questions when everything else fails
 function generateFallbackQuestions(numQuestions: number, difficulty: 'easy' | 'medium' | 'hard'): Question[] {
-  console.log(`Generating ${numQuestions} fallback questions due to error`);
+  console.log(`Génération de ${numQuestions} questions de secours suite à une erreur`);
   const questions: Question[] = [];
   
   for (let i = 0; i < numQuestions; i++) {
@@ -159,45 +242,59 @@ function generateFallbackQuestions(numQuestions: number, difficulty: 'easy' | 'm
   return questions;
 }
 
-// Improved function to generate questions based on text content
+// Version améliorée de la génération de questions basée sur le texte
 function generateQuestionsFromText(
   text: string, 
   numQuestions: number, 
   difficulty: 'easy' | 'medium' | 'hard' = 'medium',
   additionalInfo?: string
 ): Question[] {
-  console.log(`Starting question generation from text (${text.length} chars)`);
+  console.log(`Début de la génération de questions à partir du texte (${text.length} caractères)`);
   const questions: Question[] = [];
   
   try {
-    // Extract meaningful content from the text
+    // Extraction de contenu significatif du texte
     const paragraphs = text.split('\n').filter(p => p.trim().length > 20);
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
-    const words = text.split(/\s+/).filter(word => word.length > 5);
-    const uniqueWords = [...new Set(words)];
     
-    console.log(`Extracted ${paragraphs.length} paragraphs, ${sentences.length} sentences, ${uniqueWords.length} unique words`);
+    // Extraction plus intelligente des termes clés
+    const words = text.toLowerCase().split(/\s+/).filter(word => 
+      word.length > 5 && 
+      !['alors', 'ainsi', 'comme', 'cependant', 'parce', 'pourtant'].includes(word)
+    );
     
-    // Build a simple summary of the text for context
+    // Éliminer les mots les plus courants avant d'extraire les mots uniques
+    const commonWords = new Set(['après', 'avant', 'cette', 'autre', 'entre', 'partir', 'depuis', 'plusieurs', 'pendant']);
+    const filteredWords = words.filter(word => !commonWords.has(word));
+    
+    // Obtenir les mots uniques les plus fréquents
+    const wordFrequency: Record<string, number> = {};
+    filteredWords.forEach(word => {
+      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+    });
+    
+    // Trier les mots par fréquence et prendre les top N
+    const sortedWords = Object.entries(wordFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0]);
+    
+    const keyTerms = sortedWords.slice(0, 30);
+    
+    console.log(`Extraction de ${paragraphs.length} paragraphes, ${sentences.length} phrases, ${keyTerms.length} termes clés`);
+    
+    // Construction d'un résumé simple du texte pour le contexte
     const textSummary = paragraphs.length > 0 
       ? paragraphs.slice(0, 3).join(' ') 
       : text.substring(0, 500);
     
-    // Extract key concepts from the text
-    const keywords = uniqueWords
-      .filter(word => word.length > 6)
-      .slice(0, 20);
-    
-    console.log(`Using ${keywords.length} keywords for question generation`);
-    
-    // More advanced question types by difficulty level
+    // Types de questions plus avancés par niveau de difficulté
     const questionsByDifficulty = {
       easy: [
         "Quelle est la définition de %s selon le texte?",
         "Quel concept est directement associé à %s dans le document?",
         "Que signifie %s dans le contexte du document?",
         "Quelle information est correcte concernant %s?",
-        "Quel est l'élément principal décrit dans %s?"
+        "Quel est l'élément principal décrit dans le passage sur %s?"
       ],
       medium: [
         "Comment le concept de %s est-il relié à %s dans le texte?",
@@ -216,91 +313,124 @@ function generateQuestionsFromText(
     };
     
     for (let i = 0; i < numQuestions; i++) {
+      // Garantir que nous avons suffisamment de contenu pour générer une question
+      if (sentences.length === 0 && paragraphs.length === 0) {
+        console.warn("Contenu insuffisant pour générer plus de questions");
+        break;
+      }
+      
       const id = `q${i + 1}`;
       let questionText = "";
       
       try {
-        // Select random concepts from the text to build the question
-        const randomConcept1 = keywords[Math.floor(Math.random() * keywords.length)] || "ce concept";
-        const randomConcept2 = keywords[Math.floor(Math.random() * keywords.length)] || "cet élément";
+        // Sélectionner des phrases ou paragraphes aléatoires pour cette question
+        const randomSentenceIndex = Math.floor(Math.random() * Math.max(sentences.length, 1));
+        const randomParagraphIndex = Math.floor(Math.random() * Math.max(paragraphs.length, 1));
         
-        // Select a question template based on difficulty
+        const sentenceSource = sentences.length > 0 ? sentences[randomSentenceIndex] : "";
+        const paragraphSource = paragraphs.length > 0 ? paragraphs[randomParagraphIndex] : "";
+        
+        // Choisir la source avec le plus de contenu
+        const contentSource = sentenceSource.length > paragraphSource.length ? sentenceSource : paragraphSource;
+        
+        // Extraire des termes significatifs du contenu source
+        const contentWords = contentSource.toLowerCase().split(/\s+/).filter(word => word.length > 5);
+        const sourceTerms = [...new Set(contentWords)];
+        
+        // Sélectionner des concepts aléatoires pour construire la question
+        const getRandomTerm = () => {
+          // Préférer les termes de la source actuelle, sinon utiliser les termes globaux
+          const termsPool = sourceTerms.length > 2 ? sourceTerms : keyTerms;
+          const term = termsPool[Math.floor(Math.random() * termsPool.length)];
+          // Capitaliser le terme
+          return term ? term.charAt(0).toUpperCase() + term.slice(1) : "ce concept";
+        };
+        
+        const randomConcept1 = getRandomTerm();
+        const randomConcept2 = getRandomTerm();
+        
+        // Sélectionner un modèle de question basé sur la difficulté
         const questionTemplates = questionsByDifficulty[difficulty];
         let questionTemplate = questionTemplates[Math.floor(Math.random() * questionTemplates.length)];
         
-        // Replace placeholders with actual concepts
+        // Remplacer les espaces réservés par des concepts réels
         questionText = questionTemplate.replace('%s', randomConcept1).replace('%s', randomConcept2);
         
-        // For difficult questions, add a richer context
-        if (difficulty === 'hard') {
-          const contextParagraph = paragraphs[Math.floor(Math.random() * paragraphs.length)] || sentences[Math.floor(Math.random() * sentences.length)];
-          if (contextParagraph) {
-            questionText = `Dans le contexte suivant: "${contextParagraph.substring(0, 100)}...", ${questionText}`;
-          }
+        // Pour les questions difficiles, ajouter un contexte plus riche
+        if (difficulty === 'hard' && contentSource) {
+          questionText = `Dans le contexte suivant: "${contentSource.substring(0, 100)}...", ${questionText}`;
         }
         
-        // Generate options with a correct answer
+        // Générer des options avec une réponse correcte
         const options = [];
         const correctOptionIndex = Math.floor(Math.random() * 4);
         
-        // Extract relevant information from the text for the options
+        // Extraire des informations pertinentes du texte pour les options
         for (let j = 0; j < 4; j++) {
           const optionId = `${id}_${String.fromCharCode(97 + j)}`;
           const isCorrect = j === correctOptionIndex;
           
-          // Find a relevant paragraph or sentence for this option
+          // Trouver un paragraphe ou une phrase pertinente pour cette option
           const optionSourceIndex = (i + j) % Math.max(sentences.length, 1);
           const optionSource = sentences[optionSourceIndex] || paragraphs[optionSourceIndex % paragraphs.length] || textSummary;
           
           let optionText = "";
           
           if (isCorrect) {
-            // Correct option - extract exact and relevant information
-            const sentenceWords = optionSource.split(/\s+/);
-            const startIndex = Math.floor(Math.random() * Math.max(sentenceWords.length - 8, 1));
-            const length = difficulty === 'easy' ? 5 : (difficulty === 'medium' ? 7 : 10);
-            
-            optionText = sentenceWords.slice(startIndex, startIndex + length).join(' ');
-            optionText = optionText.charAt(0).toUpperCase() + optionText.slice(1);
-            
-            if (!optionText.endsWith('.') && !optionText.endsWith('!') && !optionText.endsWith('?')) {
-              optionText += '.';
+            // Option correcte - extraire des informations exactes et pertinentes
+            if (contentSource) {
+              const sentenceWords = contentSource.split(/\s+/);
+              const startIndex = Math.floor(Math.random() * Math.max(sentenceWords.length - 8, 1));
+              const length = difficulty === 'easy' ? 5 : (difficulty === 'medium' ? 7 : 10);
+              
+              optionText = sentenceWords.slice(startIndex, startIndex + length).join(' ');
+              optionText = optionText.charAt(0).toUpperCase() + optionText.slice(1);
+              
+              if (!optionText.endsWith('.') && !optionText.endsWith('!') && !optionText.endsWith('?')) {
+                optionText += '.';
+              }
+            } else {
+              optionText = `Information correcte concernant ${randomConcept1}.`;
             }
           } else {
-            // Incorrect options - plausible but inaccurate variations
-            const sentenceWords = optionSource.split(/\s+/);
-            const startIndex = Math.floor(Math.random() * Math.max(sentenceWords.length - 6, 1));
-            
-            // Modify the content slightly for incorrect options
-            let incorrectText = sentenceWords.slice(startIndex, startIndex + 5).join(' ');
-            incorrectText = incorrectText.charAt(0).toUpperCase() + incorrectText.slice(1);
-            
-            if (!incorrectText.endsWith('.') && !incorrectText.endsWith('!') && !incorrectText.endsWith('?')) {
-              incorrectText += '.';
-            }
-            
-            // Add modifiers based on difficulty
-            if (difficulty === 'easy') {
-              // Clearly incorrect options for easy questions
-              optionText = incorrectText;
-            } else if (difficulty === 'medium') {
-              // Partially true but with errors for medium level
-              const modifiers = [
-                "mais pas dans ce contexte",
-                "bien que ce ne soit pas exact",
-                "ce qui est une interprétation inexacte",
-                "contrairement à ce qui est mentionné"
-              ];
-              const modifier = modifiers[j % modifiers.length];
-              optionText = `${incorrectText} ${modifier}`;
+            // Options incorrectes - variations plausibles mais inexactes
+            if (optionSource) {
+              const sentenceWords = optionSource.split(/\s+/);
+              const startIndex = Math.floor(Math.random() * Math.max(sentenceWords.length - 6, 1));
+              
+              // Modifier légèrement le contenu pour les options incorrectes
+              let incorrectText = sentenceWords.slice(startIndex, startIndex + 5).join(' ');
+              incorrectText = incorrectText.charAt(0).toUpperCase() + incorrectText.slice(1);
+              
+              if (!incorrectText.endsWith('.') && !incorrectText.endsWith('!') && !incorrectText.endsWith('?')) {
+                incorrectText += '.';
+              }
+              
+              // Ajouter des modificateurs en fonction de la difficulté
+              if (difficulty === 'easy') {
+                // Options clairement incorrectes pour les questions faciles
+                optionText = incorrectText;
+              } else if (difficulty === 'medium') {
+                // Partiellement vrai mais avec des erreurs pour le niveau moyen
+                const modifiers = [
+                  "mais pas dans ce contexte",
+                  "bien que ce ne soit pas exact",
+                  "ce qui est une interprétation inexacte",
+                  "contrairement à ce qui est mentionné"
+                ];
+                const modifier = modifiers[j % modifiers.length];
+                optionText = `${incorrectText} ${modifier}`;
+              } else {
+                // Options très trompeuses pour le niveau difficile
+                const oppositeConcept = keyTerms[(i + j + 10) % keyTerms.length] || "un autre concept";
+                optionText = `${incorrectText} en relation avec ${oppositeConcept}`;
+              }
             } else {
-              // Very misleading options for difficult level
-              const oppositeConcept = keywords[(i + j + 10) % keywords.length] || "un autre concept";
-              optionText = `${incorrectText} en relation avec ${oppositeConcept}`;
+              optionText = `Interprétation erronée concernant ${randomConcept1}.`;
             }
           }
           
-          // Ensure the option has minimal content
+          // S'assurer que l'option a un contenu minimal
           if (optionText.split(/\s+/).length < 3) {
             optionText = isCorrect 
               ? `Information exacte sur ${randomConcept1}.` 
@@ -314,11 +444,11 @@ function generateQuestionsFromText(
           });
         }
         
-        // Create a detailed explanation based on the content
+        // Créer une explication détaillée basée sur le contenu
         const correctOption = options[correctOptionIndex];
         let explanation = `La réponse correcte est "${correctOption.text}"`;
         
-        // Enrich the explanation based on difficulty
+        // Enrichir l'explication en fonction de la difficulté
         if (difficulty === 'easy') {
           explanation += `. Cette information apparaît directement dans le document, où ${randomConcept1} est défini et expliqué.`;
         } else if (difficulty === 'medium') {
@@ -327,10 +457,9 @@ function generateQuestionsFromText(
           explanation += `. Cette conclusion peut être déduite en synthétisant plusieurs passages du document qui abordent ${randomConcept1} et ${randomConcept2}, notamment dans le contexte théorique présenté.`;
         }
         
-        // Add a reference to the source text in the explanation
-        const sourceReference = sentences[i % sentences.length] || paragraphs[i % paragraphs.length];
-        if (sourceReference) {
-          explanation += ` On peut notamment se référer au passage: "${sourceReference.substring(0, 70)}..."`;
+        // Ajouter une référence à la source dans l'explication
+        if (contentSource) {
+          explanation += ` On peut notamment se référer au passage: "${contentSource.substring(0, 70)}..."`;
         }
         
         questions.push({
@@ -341,8 +470,8 @@ function generateQuestionsFromText(
           difficulty
         });
       } catch (questionError) {
-        console.error(`Error generating question ${i + 1}:`, questionError);
-        // Add a fallback question if there's an error
+        console.error(`Erreur lors de la génération de la question ${i + 1}:`, questionError);
+        // Ajouter une question de secours en cas d'erreur
         questions.push({
           id,
           text: `Question ${i + 1} sur le document?`,
@@ -358,12 +487,12 @@ function generateQuestionsFromText(
       }
     }
     
-    console.log(`Successfully generated ${questions.length} questions`);
+    console.log(`${questions.length} questions générées avec succès`);
     return questions;
     
   } catch (error) {
-    console.error('Error in generateQuestionsFromText:', error);
-    // Return basic fallback questions if the main logic fails
+    console.error('Erreur dans generateQuestionsFromText:', error);
+    // Retourner des questions de secours basiques si la logique principale échoue
     return generateFallbackQuestions(numQuestions, difficulty);
   }
 }

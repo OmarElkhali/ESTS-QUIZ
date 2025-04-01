@@ -1,3 +1,4 @@
+
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -55,13 +56,22 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
+      console.log(`Début de création du quiz: ${numQuestions} questions, difficulté: ${difficulty}, limite de temps: ${timeLimit || 'non définie'}`);
+      
       // 1. Upload file to storage
       const fileUrl = await quizService.uploadFile(file, user.id);
+      console.log('Fichier téléchargé avec succès:', fileUrl);
       
       // 2. Extract text from file
       const text = await quizService.extractTextFromFile(fileUrl, file.type);
+      console.log(`Texte extrait: ${text.length} caractères`);
+      
+      if (!text || text.length < 50) {
+        throw new Error("Impossible d'extraire suffisamment de texte du document");
+      }
       
       // 3. Generate questions using AI (with difficulty level)
+      console.log(`Génération de ${numQuestions} questions (${difficulty})...`);
       const questions = await quizService.generateQuizFromText(
         text,
         numQuestions,
@@ -69,6 +79,12 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         additionalInfo,
         apiKey
       );
+      
+      if (!questions || questions.length === 0) {
+        throw new Error("Impossible de générer des questions à partir du texte");
+      }
+      
+      console.log(`${questions.length} questions générées avec succès`);
       
       // 4. Save quiz to Firestore with difficulty
       const title = file.name.split('.')[0];
@@ -84,6 +100,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         timeLimit
       );
       
+      console.log(`Quiz créé avec l'ID: ${quizId}`);
+      
       // 5. Fetch the new quiz to get all fields
       const newQuiz = await quizService.getQuiz(quizId);
       
@@ -94,7 +112,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success('Quiz créé avec succès');
       return quizId;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating quiz:', error);
       toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
       throw error;
