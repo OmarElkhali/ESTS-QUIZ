@@ -15,6 +15,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// OpenRouter API key for Qwen
+const OPENROUTER_API_KEY = "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";
+
 export const QuizForm = () => {
   const navigate = useNavigate();
   const { createQuiz, isLoading } = useQuiz();
@@ -26,6 +29,7 @@ export const QuizForm = () => {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   const [timeLimit, setTimeLimit] = useState(30); // minutes
+  const [modelType, setModelType] = useState<'openai' | 'qwen' | 'gemini' | 'local'>('qwen');
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -46,15 +50,20 @@ export const QuizForm = () => {
     }
     
     try {
-      console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}`);
+      console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       console.log(`Limite de temps: ${enableTimeLimit ? timeLimit : 'non définie'}`);
+      
+      // If using Qwen, we already have the API key
+      const apiKey = modelType === 'qwen' ? OPENROUTER_API_KEY : undefined;
       
       const quizId = await createQuiz(
         file, 
         numQuestions, 
         difficulty, 
         enableTimeLimit ? timeLimit : undefined, 
-        additionalInfo
+        additionalInfo,
+        apiKey,
+        modelType
       );
       
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
@@ -85,6 +94,33 @@ export const QuizForm = () => {
           <FileUpload onFileSelect={handleFileSelect} />
           <p className="text-xs text-muted-foreground">
             Formats acceptés: PDF, DOCX, TXT (max 10MB)
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <Label>Modèle d'IA pour la génération</Label>
+          <Select
+            value={modelType}
+            onValueChange={(value) => setModelType(value as 'openai' | 'qwen' | 'gemini' | 'local')}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner un modèle d'IA" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="qwen">Qwen 2.5 (Recommandé)</SelectItem>
+              <SelectItem value="openai">OpenAI (GPT-4o-mini)</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
+              <SelectItem value="local">Génération locale</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {modelType === 'qwen' 
+              ? "Qwen 2.5 - Modèle performant optimisé pour les contenus éducatifs"
+              : modelType === 'openai'
+                ? "OpenAI - Haute qualité, nécessite une clé API"
+                : modelType === 'gemini'
+                  ? "Google Gemini - Bonne alternative gratuite"
+                  : "Génération locale - Plus rapide mais moins précis"}
           </p>
         </div>
         

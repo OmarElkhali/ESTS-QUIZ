@@ -1,4 +1,3 @@
-
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -46,7 +45,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     difficulty: 'easy' | 'medium' | 'hard' = 'medium',
     timeLimit?: number,
     additionalInfo?: string, 
-    apiKey?: string
+    apiKey?: string,
+    modelType: 'openai' | 'qwen' | 'gemini' | 'local' = 'openai'
   ): Promise<string> => {
     if (!user) {
       toast.error('Veuillez vous connecter pour créer un quiz');
@@ -56,7 +56,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      console.log(`Début de création du quiz: ${numQuestions} questions, difficulté: ${difficulty}, limite de temps: ${timeLimit || 'non définie'}`);
+      console.log(`Début de création du quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}, limite de temps: ${timeLimit || 'non définie'}`);
       
       // 1. Upload file to storage
       const fileUrl = await quizService.uploadFile(file, user.id);
@@ -70,29 +70,51 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Impossible d'extraire suffisamment de texte du document");
       }
       
-      // 3. Generate questions using AI with Gemini support
-      console.log(`Génération de ${numQuestions} questions (${difficulty})...`);
+      // 3. Generate questions based on selected AI model
+      console.log(`Génération de ${numQuestions} questions (${difficulty}) avec ${modelType}...`);
       
-      // Try to use the Gemini API via our Supabase Function first
       let questions;
-      try {
-        console.log("Tentative de génération avec Gemini...");
-        questions = await quizService.generateQuizFromText(
-          text,
-          numQuestions,
-          difficulty,
-          additionalInfo,
-          apiKey
-        );
-      } catch (geminiError) {
-        console.error("Erreur avec Gemini, fallback à OpenAI:", geminiError);
-        questions = await quizService.generateQuizFromText(
-          text,
-          numQuestions,
-          difficulty,
-          additionalInfo,
-          apiKey
-        );
+      
+      if (modelType === 'qwen') {
+        // Use Qwen model via our Supabase function
+        try {
+          console.log("Tentative de génération avec Qwen...");
+          questions = await quizService.generateQuizWithQwen(
+            text,
+            numQuestions,
+            difficulty,
+            additionalInfo
+          );
+        } catch (qwenError) {
+          console.error("Erreur avec Qwen, fallback à Gemini:", qwenError);
+          questions = await quizService.generateQuizFromText(
+            text,
+            numQuestions,
+            difficulty,
+            additionalInfo,
+            apiKey
+          );
+        }
+      } else {
+        // Use existing function with OpenAI/Gemini
+        try {
+          console.log(`Tentative de génération avec ${modelType === 'openai' ? 'OpenAI' : 'Gemini'}...`);
+          questions = await quizService.generateQuizFromText(
+            text,
+            numQuestions,
+            difficulty,
+            additionalInfo,
+            apiKey
+          );
+        } catch (aiError) {
+          console.error(`Erreur avec ${modelType}, fallback à la génération locale:`, aiError);
+          questions = await quizService.generateQuizFromText(
+            text,
+            numQuestions,
+            difficulty,
+            additionalInfo
+          );
+        }
       }
       
       if (!questions || questions.length === 0) {
@@ -257,11 +279,114 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         currentQuiz,
         isLoading,
         createQuiz,
-        getQuiz,
-        submitQuizAnswers,
-        deleteQuiz,
-        shareQuiz,
-        removeCollaborator,
+        getQuiz: async (id: string) => {
+          setIsLoading(true);
+          
+          try {
+            const quiz = await quizService.getQuiz(id);
+            setCurrentQuiz(quiz);
+            return quiz;
+          } catch (error) {
+            console.error('Error getting quiz:', error);
+            toast.error('Impossible de récupérer le quiz');
+            return null;
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        submitQuizAnswers: async (quizId: string, answers: Record<string, string>) => {
+          if (!user) {
+            toast.error('Veuillez vous connecter pour soumettre vos réponses');
+            throw new Error('User not authenticated');
+          }
+          
+          setIsLoading(true);
+          
+          try {
+            console.log("Soumission des réponses:", answers);
+            const score = await quizService.submitQuizAnswers(quizId, user.id, answers);
+            
+            // Update the local state
+            setQuizzes(prev => prev.map(q => {
+              if (q.id === quizId) {
+                return { ...q, completionRate: 100 };
+              }
+              return q;
+            }));
+            
+            toast.success('Réponses soumises avec succès');
+            return score;
+          } catch (error) {
+            console.error('Error submitting answers:', error);
+            toast.error('Impossible de soumettre vos réponses');
+            throw error;
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        deleteQuiz: async (id: string) => {
+          setIsLoading(true);
+          
+          try {
+            await quizService.deleteQuiz(id);
+            
+            // Update local state
+            setQuizzes(prev => prev.filter(quiz => quiz.id !== id));
+            
+            if (currentQuiz?.id === id) {
+              setCurrentQuiz(null);
+            }
+            
+            toast.success('Quiz supprimé avec succès');
+          } catch (error) {
+            console.error('Error deleting quiz:', error);
+            toast.error('Impossible de supprimer le quiz');
+            throw error;
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        shareQuiz: async (id: string, email: string) => {
+          setIsLoading(true);
+          
+          try {
+            await quizService.shareQuiz(id, email);
+            
+            // Update local state
+            setQuizzes(prev => prev.map(q => {
+              if (q.id === id) {
+                return { ...q, isShared: true };
+              }
+              return q;
+            }));
+            
+            toast.success('Quiz partagé avec succès');
+          } catch (error) {
+            console.error('Error sharing quiz:', error);
+            toast.error('Impossible de partager le quiz');
+            throw error;
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        removeCollaborator: async (quizId: string, collaboratorId: string) => {
+          setIsLoading(true);
+          
+          try {
+            await quizService.removeCollaborator(quizId, collaboratorId);
+            
+            // Refresh the quizzes
+            await fetchQuizzes();
+            
+            toast.success('Collaborateur supprimé avec succès');
+          } catch (error) {
+            console.error('Error removing collaborator:', error);
+            toast.error('Impossible de supprimer le collaborateur');
+            throw error;
+          } finally {
+            setIsLoading(false);
+          }
+        },
       }}
     >
       {children}

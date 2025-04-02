@@ -185,11 +185,50 @@ export const AIService = {
     }
   },
   
+  generateQuestionsWithQwen: async (options: AIServiceOptions): Promise<Question[]> => {
+    const { text, numQuestions, additionalInfo, difficulty = 'medium' } = options;
+    
+    try {
+      console.log(`Génération de ${numQuestions} questions avec Qwen...`);
+      
+      const { data, error } = await supabase.functions.invoke('generate-with-qwen', {
+        body: { text, numQuestions, difficulty, additionalInfo }
+      });
+      
+      if (error) {
+        console.error('Erreur avec la fonction generate-with-qwen:', error);
+        throw error;
+      }
+      
+      if (!data || !data.questions || !Array.isArray(data.questions)) {
+        console.error('Format de réponse invalide depuis la fonction Qwen:', data);
+        throw new Error('Format de réponse invalide depuis la fonction Qwen');
+      }
+      
+      console.log(`${data.questions.length} questions générées avec succès par Qwen`);
+      return data.questions;
+    } catch (error) {
+      console.error('Erreur avec la génération Qwen:', error);
+      // Fallback to Gemini
+      return generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
+    }
+  },
+  
   generateQuestionsLocally: async (options: AIServiceOptions): Promise<Question[]> => {
     const { text, numQuestions, additionalInfo, difficulty = 'medium' } = options;
     
     try {
-      console.log(`Essai de génération avec Gemini d'abord...`);
+      console.log(`Essai de génération avec Qwen d'abord...`);
+      try {
+        const qwenQuestions = await AIService.generateQuestionsWithQwen(options);
+        if (qwenQuestions && qwenQuestions.length > 0) {
+          return qwenQuestions;
+        }
+      } catch (qwenError) {
+        console.log('Échec de Qwen, passage à Gemini:', qwenError);
+      }
+      
+      console.log(`Essai de génération avec Gemini...`);
       const geminiQuestions = await generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
       
       if (geminiQuestions && geminiQuestions.length > 0) {
@@ -199,7 +238,7 @@ export const AIService = {
       console.log(`Fallback à la génération locale de ${numQuestions} questions ${difficulty}`);
       return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
     } catch (error) {
-      console.error('Erreur génération avec Gemini et locale:', error);
+      console.error('Erreur génération avec tous les modèles:', error);
       return generateFallbackQuestions(numQuestions, difficulty);
     }
   }

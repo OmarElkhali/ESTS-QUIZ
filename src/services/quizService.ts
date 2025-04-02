@@ -1,4 +1,3 @@
-
 import { db } from '@/lib/firebase';
 import { 
   collection, 
@@ -17,6 +16,7 @@ import {
 import { Quiz, Question } from '@/types/quiz';
 import { AIService } from './aiService';
 import { uploadFileToSupabase } from './storageService';
+import { supabase } from "@/integrations/supabase/client";
 
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
   try {
@@ -114,6 +114,37 @@ export const generateQuizFromText = async (
   } catch (error) {
     console.error('Error generating quiz:', error);
     throw new Error('Failed to generate quiz questions');
+  }
+};
+
+export const generateQuizWithQwen = async (
+  text: string,
+  numQuestions: number,
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  additionalInfo?: string
+): Promise<Question[]> => {
+  try {
+    console.log(`Génération de ${numQuestions} questions avec Qwen...`);
+    
+    const { data, error } = await supabase.functions.invoke('generate-with-qwen', {
+      body: { text, numQuestions, difficulty, additionalInfo }
+    });
+    
+    if (error) {
+      console.error('Erreur avec la fonction generate-with-qwen:', error);
+      throw error;
+    }
+    
+    if (!data || !data.questions || !Array.isArray(data.questions)) {
+      console.error('Format de réponse invalide depuis la fonction Qwen:', data);
+      throw new Error('Format de réponse invalide depuis la fonction Qwen');
+    }
+    
+    console.log(`${data.questions.length} questions générées avec succès par Qwen`);
+    return data.questions;
+  } catch (error) {
+    console.error('Erreur avec la génération Qwen:', error);
+    throw error;
   }
 };
 
