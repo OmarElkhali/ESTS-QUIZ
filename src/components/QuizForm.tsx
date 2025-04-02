@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +28,6 @@ export const QuizForm = () => {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   const [timeLimit, setTimeLimit] = useState(30); // minutes
-  // Changement du modèle par défaut à Qwen
   const [modelType, setModelType] = useState<'openai' | 'qwen' | 'gemini' | 'local'>('qwen');
   
   const handleFileSelect = (file: File) => {
@@ -54,7 +52,6 @@ export const QuizForm = () => {
       console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       console.log(`Limite de temps: ${enableTimeLimit ? timeLimit : 'non définie'}`);
       
-      // Pour Qwen, on utilise l'API key d'OpenRouter
       const apiKey = modelType === 'qwen' ? OPENROUTER_API_KEY : undefined;
       
       const quizId = await createQuiz(
@@ -71,7 +68,6 @@ export const QuizForm = () => {
       navigate(`/quiz/${quizId}`);
     } catch (error) {
       console.error("Erreur lors de la création du quiz:", error);
-      // L'erreur est gérée dans le contexte de quiz
     }
   };
   
