@@ -77,7 +77,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       let questions;
       try {
         console.log("Tentative de génération avec Gemini...");
-        questions = await quizService.generateQuestionsFromText(
+        questions = await quizService.generateQuizFromText(
           text,
           numQuestions,
           difficulty,
@@ -86,7 +86,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         );
       } catch (geminiError) {
         console.error("Erreur avec Gemini, fallback à OpenAI:", geminiError);
-        questions = await quizService.generateQuestionsFromText(
+        questions = await quizService.generateQuizFromText(
           text,
           numQuestions,
           difficulty,
