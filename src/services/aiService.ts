@@ -1,6 +1,7 @@
 
 import { Question } from '@/types/quiz';
 import OpenAI from 'openai';
+import { supabase } from "@/integrations/supabase/client";
 
 interface AIServiceOptions {
   text: string;
@@ -22,7 +23,7 @@ export const AIService = {
       
       if (!apiKey) {
         console.error('Aucune clé API fournie pour OpenAI');
-        return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+        return generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
       }
       
       // Initialize OpenAI client
@@ -171,37 +172,16 @@ export const AIService = {
           console.error("Erreur d'analyse de la réponse OpenAI:", parseError);
           console.log("Réponse brute (100 premiers caractères):", content.substring(0, 100));
           
-          // Tentative de récupération des questions depuis le texte
-          try {
-            // Recherche de structure JSON dans la réponse textuelle
-            const jsonRegex = /\[\s*\{.*?\}\s*\]/gs;
-            const match = content.match(jsonRegex);
-            
-            if (match && match[0]) {
-              console.log("Tentative de récupération du JSON depuis le texte");
-              const extractedJson = match[0];
-              const extractedQuestions = JSON.parse(extractedJson);
-              
-              if (Array.isArray(extractedQuestions) && extractedQuestions.length > 0) {
-                console.log(`Récupération réussie: ${extractedQuestions.length} questions extraites`);
-                return extractedQuestions;
-              }
-            }
-          } catch (recoveryError) {
-            console.error("Échec de récupération JSON:", recoveryError);
-          }
-          
-          // Fallback à la génération locale si toutes les tentatives échouent
-          console.log("Utilisation du générateur local comme fallback");
-          return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+          // Try using Gemini as fallback
+          return generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
         }
       } catch (apiError) {
         console.error("Erreur d'API OpenAI:", apiError.message || apiError);
-        return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+        return generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
       }
     } catch (error) {
       console.error('Erreur globale de génération avec OpenAI:', error);
-      return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+      return generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
     }
   },
   
@@ -209,14 +189,54 @@ export const AIService = {
     const { text, numQuestions, additionalInfo, difficulty = 'medium' } = options;
     
     try {
-      console.log(`Génération locale de ${numQuestions} questions ${difficulty}`);
+      console.log(`Essai de génération avec Gemini d'abord...`);
+      const geminiQuestions = await generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
+      
+      if (geminiQuestions && geminiQuestions.length > 0) {
+        return geminiQuestions;
+      }
+      
+      console.log(`Fallback à la génération locale de ${numQuestions} questions ${difficulty}`);
       return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
     } catch (error) {
-      console.error('Erreur génération locale:', error);
+      console.error('Erreur génération avec Gemini et locale:', error);
       return generateFallbackQuestions(numQuestions, difficulty);
     }
   }
 };
+
+// Use Gemini via Supabase function
+async function generateQuestionsWithGemini(
+  text: string, 
+  numQuestions: number, 
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  additionalInfo?: string
+): Promise<Question[]> {
+  try {
+    console.log(`Generating ${numQuestions} questions with Gemini API`);
+    
+    const { data, error } = await supabase.functions.invoke('generate-questions', {
+      body: { text, numQuestions, difficulty, additionalInfo }
+    });
+
+    if (error) {
+      console.error('Error calling Gemini function:', error);
+      throw error;
+    }
+
+    if (!data || !data.questions || !Array.isArray(data.questions)) {
+      console.error('Invalid response from Gemini function:', data);
+      throw new Error('Invalid response format from Gemini function');
+    }
+
+    console.log(`Successfully received ${data.questions.length} questions from Gemini`);
+    return data.questions;
+  } catch (error) {
+    console.error('Error with Gemini question generation:', error);
+    // Fallback to local generation
+    return generateQuestionsFromText(text, numQuestions, difficulty, additionalInfo);
+  }
+}
 
 // Generate fallback questions when everything else fails
 function generateFallbackQuestions(numQuestions: number, difficulty: 'easy' | 'medium' | 'hard'): Question[] {

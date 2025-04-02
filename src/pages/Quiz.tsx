@@ -158,11 +158,13 @@ const Quiz = () => {
 
   const handleAnswerChange = (optionId: string) => {
     console.log(`Réponse sélectionnée: ${optionId} pour la question ${currentQuestion.id}`);
-    // Mets à jour l'état local immédiatement
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: optionId
-    }));
+    
+    // Fix: Create a new object to ensure state update triggers properly
+    const newAnswers = { ...answers };
+    newAnswers[currentQuestion.id] = optionId;
+    setAnswers(newAnswers);
+    
+    console.log("Toutes les réponses après mise à jour:", newAnswers);
   };
 
   const handleNextQuestion = () => {
@@ -201,10 +203,13 @@ const Quiz = () => {
     } catch (error) {
       console.error('Erreur lors de la soumission du quiz:', error);
       toast.error("Impossible de soumettre vos réponses");
-    } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Log the current state to help debug
+  console.log("État actuel des réponses:", answers);
+  console.log("Réponse actuelle:", answers[currentQuestion?.id]);
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -293,7 +298,7 @@ const Quiz = () => {
               
               <CardContent>
                 <RadioGroup 
-                  value={answers[currentQuestion.id]}
+                  value={answers[currentQuestion.id] || ""}
                   onValueChange={handleAnswerChange}
                   className="space-y-3"
                 >
@@ -304,7 +309,7 @@ const Quiz = () => {
                         answers[currentQuestion.id] === option.id ? 'bg-primary/10 border-primary/50' : ''
                       }`}
                     >
-                      <RadioGroupItem value={option.id} id={option.id} />
+                      <RadioGroupItem value={option.id} id={option.id} className="cursor-pointer" />
                       <Label htmlFor={option.id} className="flex-grow cursor-pointer">{option.text}</Label>
                     </div>
                   ))}

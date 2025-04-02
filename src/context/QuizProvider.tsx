@@ -70,15 +70,30 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Impossible d'extraire suffisamment de texte du document");
       }
       
-      // 3. Generate questions using AI (with difficulty level)
+      // 3. Generate questions using AI with Gemini support
       console.log(`Génération de ${numQuestions} questions (${difficulty})...`);
-      const questions = await quizService.generateQuizFromText(
-        text,
-        numQuestions,
-        difficulty,
-        additionalInfo,
-        apiKey
-      );
+      
+      // Try to use the Gemini API via our Supabase Function first
+      let questions;
+      try {
+        console.log("Tentative de génération avec Gemini...");
+        questions = await quizService.generateQuestionsFromText(
+          text,
+          numQuestions,
+          difficulty,
+          additionalInfo,
+          apiKey
+        );
+      } catch (geminiError) {
+        console.error("Erreur avec Gemini, fallback à OpenAI:", geminiError);
+        questions = await quizService.generateQuestionsFromText(
+          text,
+          numQuestions,
+          difficulty,
+          additionalInfo,
+          apiKey
+        );
+      }
       
       if (!questions || questions.length === 0) {
         throw new Error("Impossible de générer des questions à partir du texte");
@@ -146,6 +161,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
+      console.log("Soumission des réponses:", answers);
       const score = await quizService.submitQuizAnswers(quizId, user.id, answers);
       
       // Update the local state
