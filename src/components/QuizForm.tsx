@@ -15,7 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// OpenRouter API key for Qwen
+// OpenRouter API key pour Qwen
 const OPENROUTER_API_KEY = "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";
 
 export const QuizForm = () => {
@@ -29,6 +29,7 @@ export const QuizForm = () => {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   const [timeLimit, setTimeLimit] = useState(30); // minutes
+  // Changement du modèle par défaut à Qwen
   const [modelType, setModelType] = useState<'openai' | 'qwen' | 'gemini' | 'local'>('qwen');
   
   const handleFileSelect = (file: File) => {
@@ -53,7 +54,7 @@ export const QuizForm = () => {
       console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       console.log(`Limite de temps: ${enableTimeLimit ? timeLimit : 'non définie'}`);
       
-      // If using Qwen, we already have the API key
+      // Pour Qwen, on utilise l'API key d'OpenRouter
       const apiKey = modelType === 'qwen' ? OPENROUTER_API_KEY : undefined;
       
       const quizId = await createQuiz(
@@ -115,7 +116,7 @@ export const QuizForm = () => {
           </Select>
           <p className="text-xs text-muted-foreground">
             {modelType === 'qwen' 
-              ? "Qwen 2.5 - Modèle performant optimisé pour les contenus éducatifs"
+              ? "Qwen 2.5 - Modèle performant optimisé pour les contenus éducatifs (gratuit)"
               : modelType === 'openai'
                 ? "OpenAI - Haute qualité, nécessite une clé API"
                 : modelType === 'gemini'

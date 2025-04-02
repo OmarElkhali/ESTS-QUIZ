@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') || "";
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') || "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";
 const APP_URL = Deno.env.get('APP_URL') || "https://quiznest.app";
 
 serve(async (req) => {
