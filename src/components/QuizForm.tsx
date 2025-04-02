@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,7 @@ export const QuizForm = () => {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   const [timeLimit, setTimeLimit] = useState(30); // minutes
-  const [modelType, setModelType] = useState<'openai' | 'qwen' | 'gemini' | 'local'>('qwen');
+  const [modelType, setModelType] = useState<'qwen' | 'gemini' | 'local'>('qwen');
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -52,7 +53,8 @@ export const QuizForm = () => {
       console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       console.log(`Limite de temps: ${enableTimeLimit ? timeLimit : 'non définie'}`);
       
-      const apiKey = modelType === 'qwen' ? OPENROUTER_API_KEY : undefined;
+      // Qwen utilise toujours l'API key d'OpenRouter
+      const apiKey = OPENROUTER_API_KEY;
       
       const quizId = await createQuiz(
         file, 
@@ -98,14 +100,13 @@ export const QuizForm = () => {
           <Label>Modèle d'IA pour la génération</Label>
           <Select
             value={modelType}
-            onValueChange={(value) => setModelType(value as 'openai' | 'qwen' | 'gemini' | 'local')}
+            onValueChange={(value) => setModelType(value as 'qwen' | 'gemini' | 'local')}
           >
             <SelectTrigger>
               <SelectValue placeholder="Sélectionner un modèle d'IA" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="qwen">Qwen 2.5 (Recommandé)</SelectItem>
-              <SelectItem value="openai">OpenAI (GPT-4o-mini)</SelectItem>
               <SelectItem value="gemini">Google Gemini</SelectItem>
               <SelectItem value="local">Génération locale</SelectItem>
             </SelectContent>
@@ -113,11 +114,9 @@ export const QuizForm = () => {
           <p className="text-xs text-muted-foreground">
             {modelType === 'qwen' 
               ? "Qwen 2.5 - Modèle performant optimisé pour les contenus éducatifs (gratuit)"
-              : modelType === 'openai'
-                ? "OpenAI - Haute qualité, nécessite une clé API"
-                : modelType === 'gemini'
-                  ? "Google Gemini - Bonne alternative gratuite"
-                  : "Génération locale - Plus rapide mais moins précis"}
+              : modelType === 'gemini'
+                ? "Google Gemini - Bonne alternative gratuite"
+                : "Génération locale - Plus rapide mais moins précis"}
           </p>
         </div>
         
