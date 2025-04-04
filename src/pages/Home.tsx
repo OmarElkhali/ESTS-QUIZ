@@ -1,9 +1,9 @@
 
-import Index from './Index';
+import CreateQuiz from './CreateQuiz';
 
-// Redirect to Index component
+// Redirect to CreateQuiz component
 const Home = () => {
-  return <Index />;
+  return <CreateQuiz />;
 };
 
 export default Home;

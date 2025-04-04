@@ -1,7 +1,6 @@
 
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
-import { QuizForm } from '@/components/QuizForm';
 import { QuizCard } from '@/components/QuizCard';
 import { SharedQuizzes } from '@/components/SharedQuizzes';
 import { Separator } from '@/components/ui/separator';
@@ -20,19 +19,6 @@ const Index = () => {
       
       <main className="flex-1">
         <Hero />
-        
-        <section className="py-16 px-6 bg-muted/30">
-          <div className="container mx-auto max-w-6xl">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Générer votre Quiz</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Téléchargez vos documents, définissez le nombre de questions, et laissez notre IA créer un quiz personnalisé
-              </p>
-            </div>
-            
-            <QuizForm />
-          </div>
-        </section>
         
         {user && recentQuizzes.length > 0 && (
           <section className="py-16 px-6">

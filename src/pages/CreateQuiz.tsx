@@ -1,6 +1,6 @@
 
 import { Navbar } from '@/components/Navbar';
-import { CreateQuizForm } from '@/components/CreateQuizForm';
+import { QuizForm } from '@/components/QuizForm';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -35,7 +35,7 @@ const CreateQuiz = () => {
             </p>
           </motion.div>
           
-          <CreateQuizForm />
+          <QuizForm />
         </div>
       </main>
       
