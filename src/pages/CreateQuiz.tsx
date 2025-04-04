@@ -43,7 +43,7 @@ const CreateQuiz = () => {
         <div className="container mx-auto max-w-6xl">
           <div className="flex justify-center items-center">
             <p className="text-sm text-muted-foreground">
-              © 2023 ESTS-QUIZ. Tous droits réservés.
+              © 2025 ESTS-QUIZ. Tous droits réservés.
             </p>
           </div>
         </div>

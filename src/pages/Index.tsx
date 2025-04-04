@@ -84,7 +84,7 @@ const Index = () => {
           <Separator className="my-6" />
           
           <p className="text-xs text-muted-foreground text-center">
-            © 2023 QuizFlick. Tous droits réservés.
+            © 2025 QuizFlick. Tous droits réservés.
           </p>
         </div>
       </footer>

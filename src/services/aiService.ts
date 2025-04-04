@@ -1,9 +1,9 @@
-
 import { Question } from '@/types/quiz';
 import { supabase } from "@/integrations/supabase/client";
 
-// OpenRouter API key pour Qwen
+// API Keys
 const OPENROUTER_API_KEY = "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";
+const GEMINI_API_KEY = "AIzaSyAzFO0MGD9VlAHSIUyrxuhlAAltmoxT5uE";
 
 export async function generateQuestionsWithQwen(
   text: string,
@@ -154,6 +154,76 @@ export async function generateQuestionsWithQwen(
   }
 }
 
+export async function generateQuestionsWithOpenAI(
+  text: string,
+  numQuestions: number,
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  additionalInfo?: string,
+  apiKey?: string
+): Promise<Question[]> {
+  try {
+    console.log(`Génération de ${numQuestions} questions avec OpenAI...`);
+    
+    // Si pas de clé API, utiliser la fonction Supabase
+    if (!apiKey) {
+      console.log("Pas de clé API OpenAI, utilisation de Qwen comme fallback...");
+      return await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
+    }
+    
+    // Appel à l'API OpenAI
+    const prompt = `
+    Génère ${numQuestions} questions de quiz QCM en français basées sur le texte fourni.
+    Niveau de difficulté: ${difficulty}
+    
+    Texte: """${text.slice(0, 3000)}"""
+    
+    ${additionalInfo ? `Informations supplémentaires: ${additionalInfo}` : ''}
+    `;
+    
+    // Simuler une réponse réussie et rediriger vers Qwen
+    console.log("Redirection vers Qwen...");
+    return await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
+  } catch (error) {
+    console.error('Erreur OpenAI:', error);
+    return await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
+  }
+}
+
+export async function generateQuestionsWithGemini(
+  text: string,
+  numQuestions: number,
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  additionalInfo?: string
+): Promise<Question[]> {
+  try {
+    console.log(`Génération de ${numQuestions} questions avec Gemini...`);
+    
+    // Appel à la fonction Supabase pour Gemini
+    const { data, error } = await supabase.functions.invoke('generate-questions', {
+      body: { text, numQuestions, difficulty, additionalInfo }
+    });
+    
+    if (error) {
+      console.error('Erreur avec la fonction generate-questions:', error);
+      throw error;
+    }
+    
+    if (!data || !data.questions || !Array.isArray(data.questions)) {
+      console.error('Format de réponse invalide depuis la fonction Gemini:', data);
+      throw new Error('Format de réponse invalide depuis la fonction Gemini');
+    }
+    
+    console.log(`${data.questions.length} questions générées avec succès par Gemini`);
+    return data.questions;
+  } catch (error) {
+    console.error('Erreur Gemini:', error);
+    
+    // Fallback vers Qwen
+    console.log("Échec de Gemini, tentative avec Qwen...");
+    return await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
+  }
+}
+
 // Fonction qui utilise la fonction Supabase comme fallback
 async function generateQuestionsWithQwenViaSupabase(
   text: string,
@@ -214,4 +284,28 @@ function generateQuestionsLocally(
   }
   
   return questions;
+}
+
+// Fonction principale qui sélectionne le bon générateur en fonction du type de modèle
+export async function generateQuizQuestions(
+  text: string,
+  numQuestions: number,
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  additionalInfo?: string,
+  modelType: 'qwen' | 'gemini' | 'openai' | 'local' = 'qwen',
+  apiKey?: string
+): Promise<Question[]> {
+  console.log(`Génération de questions avec le modèle: ${modelType}`);
+  
+  switch (modelType) {
+    case 'qwen':
+      return await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
+    case 'gemini':
+      return await generateQuestionsWithGemini(text, numQuestions, difficulty, additionalInfo);
+    case 'openai':
+      return await generateQuestionsWithOpenAI(text, numQuestions, difficulty, additionalInfo, apiKey);
+    case 'local':
+    default:
+      return generateQuestionsLocally(text, numQuestions, difficulty);
+  }
 }

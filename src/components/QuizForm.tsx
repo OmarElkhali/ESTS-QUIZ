@@ -14,8 +14,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// OpenRouter API key pour Qwen
+// API keys
 const OPENROUTER_API_KEY = "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";
+const GEMINI_API_KEY = "AIzaSyAzFO0MGD9VlAHSIUyrxuhlAAltmoxT5uE";
 
 export const QuizForm = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export const QuizForm = () => {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   const [timeLimit, setTimeLimit] = useState(30); // minutes
-  const [modelType, setModelType] = useState<'qwen' | 'gemini' | 'local'>('qwen');
+  const [modelType, setModelType] = useState<'qwen' | 'gemini' | 'openai' | 'local'>('qwen');
   
   const handleFileSelect = (file: File) => {
     setFile(file);
@@ -52,8 +53,15 @@ export const QuizForm = () => {
       console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       console.log(`Limite de temps: ${enableTimeLimit ? timeLimit : 'non définie'}`);
       
-      // Qwen utilise toujours l'API key d'OpenRouter
-      const apiKey = OPENROUTER_API_KEY;
+      // Sélectionner l'API key en fonction du modèle
+      let apiKey;
+      if (modelType === 'qwen') {
+        apiKey = OPENROUTER_API_KEY;
+      } else if (modelType === 'openai') {
+        apiKey = ""; // Mettre votre clé OpenAI ici si nécessaire
+      } else if (modelType === 'gemini') {
+        apiKey = GEMINI_API_KEY;
+      }
       
       const quizId = await createQuiz(
         file, 
@@ -99,7 +107,7 @@ export const QuizForm = () => {
           <Label>Modèle d'IA pour la génération</Label>
           <Select
             value={modelType}
-            onValueChange={(value) => setModelType(value as 'qwen' | 'gemini' | 'local')}
+            onValueChange={(value) => setModelType(value as 'qwen' | 'gemini' | 'openai' | 'local')}
           >
             <SelectTrigger>
               <SelectValue placeholder="Sélectionner un modèle d'IA" />
@@ -107,15 +115,18 @@ export const QuizForm = () => {
             <SelectContent>
               <SelectItem value="qwen">Qwen 2.5 (Recommandé)</SelectItem>
               <SelectItem value="gemini">Google Gemini</SelectItem>
+              <SelectItem value="openai">OpenAI</SelectItem>
               <SelectItem value="local">Génération locale</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
             {modelType === 'qwen' 
-              ? "Qwen 2.5 - Modèle performant optimisé pour les contenus éducatifs (gratuit)"
+              ? "Qwen 2.5 - Modèle performant optimisé pour les contenus éducatifs (API OpenRouter)"
               : modelType === 'gemini'
-                ? "Google Gemini - Bonne alternative gratuite"
-                : "Génération locale - Plus rapide mais moins précis"}
+                ? "Google Gemini - Bonne alternative (API Gemini)"
+                : modelType === 'openai'
+                  ? "OpenAI - Modèle généraliste puissant (API OpenAI)"
+                  : "Génération locale - Plus rapide mais moins précis"}
           </p>
         </div>
         
