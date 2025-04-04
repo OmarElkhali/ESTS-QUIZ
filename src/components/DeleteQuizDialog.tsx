@@ -1,4 +1,5 @@
 
+import React, { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,7 +10,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { toast } from "sonner";
 

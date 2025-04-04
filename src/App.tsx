@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -17,7 +18,7 @@ const queryClient = new QueryClient()
 
 function App() {
   return (
-    <>
+    <React.Fragment>
       <BrowserRouter>
         <TooltipProvider>
           <QueryClientProvider client={queryClient}>
@@ -38,7 +39,7 @@ function App() {
         </TooltipProvider>
       </BrowserRouter>
       <Toaster />
-    </>
+    </React.Fragment>
   );
 }
 
