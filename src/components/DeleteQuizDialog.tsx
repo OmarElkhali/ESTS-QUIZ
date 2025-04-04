@@ -30,6 +30,7 @@ export const DeleteQuizDialog = ({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
+      // S'assurer que la suppression se fait correctement dans la base de données
       await deleteQuiz(quizId);
       toast.success("Quiz supprimé avec succès");
       onOpenChange(false);

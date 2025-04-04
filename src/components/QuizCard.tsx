@@ -44,7 +44,7 @@ export const QuizCard = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const handleContinue = () => {
-    navigate(isHistory ? `/history/${id}` : `/quiz/${id}`);
+    navigate(isHistory ? `/quiz-preview/${id}` : `/quiz/${id}`);
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -59,6 +59,7 @@ export const QuizCard = ({
   
   const handleRetake = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Naviguer directement vers la page du quiz pour le refaire
     navigate(`/quiz/${id}`);
   };
   

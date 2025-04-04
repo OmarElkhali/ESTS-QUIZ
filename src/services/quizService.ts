@@ -244,7 +244,7 @@ export const deleteQuiz = async (quizId: string): Promise<void> => {
     // Vous pourriez ajouter ici la suppression des fichiers associés dans Supabase
     // si vous stockez des documents pour ce quiz
     
-    console.log('Quiz supprimé avec succès');
+    console.log('Quiz supprimé avec succès de la base de données');
   } catch (error) {
     console.error('Erreur lors de la suppression du quiz:', error);
     throw new Error(`Échec de la suppression du quiz: ${error.message}`);
