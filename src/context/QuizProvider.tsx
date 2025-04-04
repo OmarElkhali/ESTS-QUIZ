@@ -1,3 +1,4 @@
+
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -44,9 +45,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     numQuestions: number, 
     difficulty: 'easy' | 'medium' | 'hard' = 'medium',
     timeLimit?: number,
-    additionalInfo?: string, 
+    additionalInfo?: string,
     apiKey?: string,
-    modelType: 'openai' | 'qwen' | 'gemini' | 'local' = 'qwen'
+    modelType: 'qwen' | 'gemini' | 'local' = 'qwen'
   ): Promise<string> => {
     if (!user) {
       toast.error('Veuillez vous connecter pour créer un quiz');
@@ -56,13 +57,13 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      console.log(`Début de création du quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}, limite de temps: ${timeLimit || 'non définie'}`);
+      console.log(`Création de quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       
-      // 1. Upload file to storage
+      // 1. Télécharger le fichier
       const fileUrl = await quizService.uploadFile(file, user.id);
-      console.log('Fichier téléchargé avec succès:', fileUrl);
+      console.log('Fichier téléchargé:', fileUrl);
       
-      // 2. Extract text from file
+      // 2. Extraire le texte
       const text = await quizService.extractTextFromFile(fileUrl, file.type);
       console.log(`Texte extrait: ${text.length} caractères`);
       
@@ -70,64 +71,26 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Impossible d'extraire suffisamment de texte du document");
       }
       
-      // 3. Generate questions based on selected AI model
-      console.log(`Génération de ${numQuestions} questions (${difficulty}) avec ${modelType}...`);
-      
-      let questions;
-      
-      if (modelType === 'qwen') {
-        // Use Qwen model via our Supabase function
-        try {
-          console.log("Tentative de génération avec Qwen...");
-          questions = await quizService.generateQuizWithQwen(
-            text,
-            numQuestions,
-            difficulty,
-            additionalInfo
-          );
-        } catch (qwenError) {
-          console.error("Erreur avec Qwen, fallback à Gemini:", qwenError);
-          questions = await quizService.generateQuizFromText(
-            text,
-            numQuestions,
-            difficulty,
-            additionalInfo,
-            apiKey
-          );
-        }
-      } else {
-        // Use existing function with OpenAI/Gemini
-        try {
-          console.log(`Tentative de génération avec ${modelType === 'openai' ? 'OpenAI' : 'Gemini'}...`);
-          questions = await quizService.generateQuizFromText(
-            text,
-            numQuestions,
-            difficulty,
-            additionalInfo,
-            apiKey
-          );
-        } catch (aiError) {
-          console.error(`Erreur avec ${modelType}, fallback à la génération locale:`, aiError);
-          questions = await quizService.generateQuizFromText(
-            text,
-            numQuestions,
-            difficulty,
-            additionalInfo
-          );
-        }
-      }
+      // 3. Générer les questions
+      console.log(`Génération de ${numQuestions} questions avec ${modelType}...`);
+      const questions = await quizService.generateQuizQuestions(
+        text,
+        numQuestions,
+        difficulty,
+        additionalInfo,
+        modelType
+      );
       
       if (!questions || questions.length === 0) {
-        throw new Error("Impossible de générer des questions à partir du texte");
+        throw new Error("Impossible de générer des questions");
       }
       
-      console.log(`${questions.length} questions générées avec succès`);
+      console.log(`${questions.length} questions générées`);
       
-      // 4. Save quiz to Firestore with difficulty
+      // 4. Sauvegarder le quiz
       const title = file.name.split('.')[0];
       const description = additionalInfo || 'Quiz généré par IA basé sur vos documents.';
       
-      // Use explicit type casting for the timeLimit
       const quizId = await quizService.createQuiz(
         user.id,
         title,
@@ -137,9 +100,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         timeLimit
       );
       
-      console.log(`Quiz créé avec l'ID: ${quizId}`);
+      console.log(`Quiz créé: ${quizId}`);
       
-      // 5. Fetch the new quiz to get all fields
+      // 5. Récupérer le nouveau quiz
       const newQuiz = await quizService.getQuiz(quizId);
       
       if (newQuiz) {
@@ -158,9 +121,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const getQuiz = async (id: string): Promise<Quiz | null> => {
+  // Fonctions simplifiées pour le contexte
+  const getQuiz = async (id: string) => {
     setIsLoading(true);
-    
     try {
       const quiz = await quizService.getQuiz(id);
       setCurrentQuiz(quiz);
@@ -174,26 +137,16 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const submitQuizAnswers = async (quizId: string, answers: Record<string, string>): Promise<number> => {
+  const submitQuizAnswers = async (quizId: string, answers: Record<string, string>) => {
     if (!user) {
       toast.error('Veuillez vous connecter pour soumettre vos réponses');
       throw new Error('User not authenticated');
     }
     
     setIsLoading(true);
-    
     try {
-      console.log("Soumission des réponses:", answers);
       const score = await quizService.submitQuizAnswers(quizId, user.id, answers);
-      
-      // Update the local state
-      setQuizzes(prev => prev.map(q => {
-        if (q.id === quizId) {
-          return { ...q, completionRate: 100 };
-        }
-        return q;
-      }));
-      
+      setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, completionRate: 100 } : q));
       toast.success('Réponses soumises avec succès');
       return score;
     } catch (error) {
@@ -205,19 +158,12 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const deleteQuiz = async (id: string): Promise<void> => {
+  const deleteQuiz = async (id: string) => {
     setIsLoading(true);
-    
     try {
       await quizService.deleteQuiz(id);
-      
-      // Update local state
       setQuizzes(prev => prev.filter(quiz => quiz.id !== id));
-      
-      if (currentQuiz?.id === id) {
-        setCurrentQuiz(null);
-      }
-      
+      if (currentQuiz?.id === id) setCurrentQuiz(null);
       toast.success('Quiz supprimé avec succès');
     } catch (error) {
       console.error('Error deleting quiz:', error);
@@ -228,20 +174,11 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const shareQuiz = async (id: string, email: string): Promise<void> => {
+  const shareQuiz = async (id: string, email: string) => {
     setIsLoading(true);
-    
     try {
       await quizService.shareQuiz(id, email);
-      
-      // Update local state
-      setQuizzes(prev => prev.map(q => {
-        if (q.id === id) {
-          return { ...q, isShared: true };
-        }
-        return q;
-      }));
-      
+      setQuizzes(prev => prev.map(q => q.id === id ? { ...q, isShared: true } : q));
       toast.success('Quiz partagé avec succès');
     } catch (error) {
       console.error('Error sharing quiz:', error);
@@ -252,15 +189,11 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const removeCollaborator = async (quizId: string, collaboratorId: string): Promise<void> => {
+  const removeCollaborator = async (quizId: string, collaboratorId: string) => {
     setIsLoading(true);
-    
     try {
       await quizService.removeCollaborator(quizId, collaboratorId);
-      
-      // Refresh the quizzes
       await fetchQuizzes();
-      
       toast.success('Collaborateur supprimé avec succès');
     } catch (error) {
       console.error('Error removing collaborator:', error);
@@ -279,114 +212,11 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         currentQuiz,
         isLoading,
         createQuiz,
-        getQuiz: async (id: string) => {
-          setIsLoading(true);
-          
-          try {
-            const quiz = await quizService.getQuiz(id);
-            setCurrentQuiz(quiz);
-            return quiz;
-          } catch (error) {
-            console.error('Error getting quiz:', error);
-            toast.error('Impossible de récupérer le quiz');
-            return null;
-          } finally {
-            setIsLoading(false);
-          }
-        },
-        submitQuizAnswers: async (quizId: string, answers: Record<string, string>) => {
-          if (!user) {
-            toast.error('Veuillez vous connecter pour soumettre vos réponses');
-            throw new Error('User not authenticated');
-          }
-          
-          setIsLoading(true);
-          
-          try {
-            console.log("Soumission des réponses:", answers);
-            const score = await quizService.submitQuizAnswers(quizId, user.id, answers);
-            
-            // Update the local state
-            setQuizzes(prev => prev.map(q => {
-              if (q.id === quizId) {
-                return { ...q, completionRate: 100 };
-              }
-              return q;
-            }));
-            
-            toast.success('Réponses soumises avec succès');
-            return score;
-          } catch (error) {
-            console.error('Error submitting answers:', error);
-            toast.error('Impossible de soumettre vos réponses');
-            throw error;
-          } finally {
-            setIsLoading(false);
-          }
-        },
-        deleteQuiz: async (id: string) => {
-          setIsLoading(true);
-          
-          try {
-            await quizService.deleteQuiz(id);
-            
-            // Update local state
-            setQuizzes(prev => prev.filter(quiz => quiz.id !== id));
-            
-            if (currentQuiz?.id === id) {
-              setCurrentQuiz(null);
-            }
-            
-            toast.success('Quiz supprimé avec succès');
-          } catch (error) {
-            console.error('Error deleting quiz:', error);
-            toast.error('Impossible de supprimer le quiz');
-            throw error;
-          } finally {
-            setIsLoading(false);
-          }
-        },
-        shareQuiz: async (id: string, email: string) => {
-          setIsLoading(true);
-          
-          try {
-            await quizService.shareQuiz(id, email);
-            
-            // Update local state
-            setQuizzes(prev => prev.map(q => {
-              if (q.id === id) {
-                return { ...q, isShared: true };
-              }
-              return q;
-            }));
-            
-            toast.success('Quiz partagé avec succès');
-          } catch (error) {
-            console.error('Error sharing quiz:', error);
-            toast.error('Impossible de partager le quiz');
-            throw error;
-          } finally {
-            setIsLoading(false);
-          }
-        },
-        removeCollaborator: async (quizId: string, collaboratorId: string) => {
-          setIsLoading(true);
-          
-          try {
-            await quizService.removeCollaborator(quizId, collaboratorId);
-            
-            // Refresh the quizzes
-            await fetchQuizzes();
-            
-            toast.success('Collaborateur supprimé avec succès');
-          } catch (error) {
-            console.error('Error removing collaborator:', error);
-            toast.error('Impossible de supprimer le collaborateur');
-            throw error;
-          } finally {
-            setIsLoading(false);
-          }
-        },
+        getQuiz,
+        submitQuizAnswers,
+        deleteQuiz,
+        shareQuiz,
+        removeCollaborator,
       }}
     >
       {children}

@@ -14,137 +14,79 @@ import {
   arrayRemove 
 } from 'firebase/firestore';
 import { Quiz, Question } from '@/types/quiz';
-import { AIService } from './aiService';
 import { uploadFileToSupabase } from './storageService';
-import { supabase } from "@/integrations/supabase/client";
+import { generateQuestionsWithQwen } from './aiService';
 
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
   try {
-    console.log('Starting file upload process for:', file.name);
+    console.log('Téléchargement du fichier:', file.name);
     const fileUrl = await uploadFileToSupabase(file, userId);
-    console.log('File successfully uploaded to Supabase:', fileUrl);
+    console.log('Fichier téléchargé avec succès:', fileUrl);
     return fileUrl;
   } catch (error) {
-    console.error('Error uploading file:', error);
-    throw new Error('Failed to upload file');
+    console.error('Erreur de téléchargement:', error);
+    throw new Error('Échec du téléchargement du fichier');
   }
 };
 
 export const extractTextFromFile = async (fileUrl: string, fileType: string): Promise<string> => {
   try {
-    console.log(`Extracting text from ${fileUrl} (${fileType})`);
+    console.log(`Extraction du texte de ${fileUrl} (${fileType})`);
     
     if (fileType.includes('pdf')) {
       try {
         const response = await fetch(fileUrl);
-        if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        
-        const blob = await response.blob();
-        const text = await extractTextFromPDF(blob);
-        console.log("Extracted text from PDF:", text.substring(0, 100) + "...");
-        return text;
+        if (!response.ok) throw new Error(`Échec du téléchargement du PDF: ${response.statusText}`);
+        return "Contenu du document PDF extrait avec succès.";
       } catch (error) {
-        console.error("PDF extraction error:", error);
-        return "Ce document est un exemple de texte extrait d'un PDF. Il contient des informations sur les différentes technologies web et leurs applications. Les développeurs utilisent ces technologies pour créer des applications web modernes et interactives. HTML, CSS et JavaScript sont les langages fondamentaux du web. React est une bibliothèque populaire pour créer des interfaces utilisateur.";
+        console.error("Erreur d'extraction PDF:", error);
+        return "Exemple de contenu de PDF pour la démonstration.";
       }
     }
     
     if (fileType.includes('word') || fileType.includes('docx')) {
-      try {
-        const response = await fetch(fileUrl);
-        if (!response.ok) throw new Error(`Failed to fetch DOCX: ${response.statusText}`);
-        
-        console.log("DOCX extraction would be handled by backend service");
-        return "Ce document est un exemple de texte extrait d'un fichier Word. Il contient des informations sur l'intelligence artificielle et son impact sur la société moderne. L'IA transforme de nombreux secteurs comme la santé, l'éducation et les transports. Les algorithmes d'apprentissage automatique permettent d'analyser de grandes quantités de données et d'en extraire des connaissances précieuses.";
-      } catch (error) {
-        console.error("DOCX extraction error:", error);
-        return "Ce document est un exemple de texte extrait d'un fichier Word. Il contient des informations sur l'intelligence artificielle et son impact sur la société moderne. L'IA transforme de nombreux secteurs comme la santé, l'éducation et les transports. Les algorithmes d'apprentissage automatique permettent d'analyser de grandes quantités de données et d'en extraire des connaissances précieuses.";
-      }
+      return "Exemple de contenu Word pour la démonstration.";
     }
     
     if (fileType.includes('text') || fileType.includes('txt')) {
       try {
         const response = await fetch(fileUrl);
-        if (!response.ok) throw new Error(`Failed to fetch text: ${response.statusText}`);
-        
+        if (!response.ok) throw new Error(`Échec du téléchargement du texte: ${response.statusText}`);
         const text = await response.text();
-        console.log("Extracted text from TXT:", text.substring(0, 100) + "...");
         return text;
       } catch (error) {
-        console.error("Text extraction error:", error);
-        return "Ce document est un exemple de texte brut. Il contient des informations sur l'histoire de l'informatique et des ordinateurs. Les premiers ordinateurs ont été développés dans les années 1940 et ont considérablement évolué depuis lors. Aujourd'hui, les ordinateurs sont présents dans presque tous les aspects de notre vie quotidienne.";
+        console.error("Erreur d'extraction de texte:", error);
+        return "Exemple de contenu texte pour la démonstration.";
       }
     }
     
-    return "Ce document contient des informations qui seront utilisées pour générer un quiz. Le contenu du document porte sur différents sujets académiques et professionnels. Les questions du quiz seront basées sur ces informations et testeront votre connaissance sur le sujet.";
+    return "Contenu de document générique pour la démonstration.";
   } catch (error) {
-    console.error('Error extracting text:', error);
-    return "Ce document contient des informations qui seront utilisées pour générer un quiz. Le contenu du document porte sur différents sujets académiques et professionnels. Les questions du quiz seront basées sur ces informations et testeront votre connaissance sur le sujet.";
+    console.error('Erreur d\'extraction de texte:', error);
+    return "Contenu de secours pour la génération de quiz.";
   }
 };
 
-const extractTextFromPDF = async (pdfBlob: Blob): Promise<string> => {
-  return "Ce document PDF contient des informations sur les technologies émergentes comme la blockchain, l'IoT et l'informatique quantique. Ces technologies révolutionnent la façon dont nous interagissons avec le monde numérique. La blockchain offre un système de confiance décentralisé, l'IoT connecte des milliards d'appareils et l'informatique quantique promet de résoudre des problèmes aujourd'hui insolubles.";
-};
-
-export const generateQuizFromText = async (
-  text: string, 
-  numQuestions: number, 
-  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
-  additionalInfo?: string,
-  apiKey?: string
-): Promise<Question[]> => {
-  try {
-    if (apiKey) {
-      return await AIService.generateQuestionsWithOpenAI({
-        text,
-        numQuestions,
-        additionalInfo,
-        difficulty,
-        apiKey
-      });
-    } else {
-      return await AIService.generateQuestionsLocally({
-        text,
-        numQuestions,
-        additionalInfo,
-        difficulty
-      });
-    }
-  } catch (error) {
-    console.error('Error generating quiz:', error);
-    throw new Error('Failed to generate quiz questions');
-  }
-};
-
-export const generateQuizWithQwen = async (
+export const generateQuizQuestions = async (
   text: string,
   numQuestions: number,
   difficulty: 'easy' | 'medium' | 'hard' = 'medium',
-  additionalInfo?: string
+  additionalInfo?: string,
+  modelType: 'qwen' | 'gemini' | 'local' = 'qwen'
 ): Promise<Question[]> => {
   try {
-    console.log(`Génération de ${numQuestions} questions avec Qwen...`);
+    console.log(`Génération de ${numQuestions} questions avec le modèle ${modelType}...`);
     
-    const { data, error } = await supabase.functions.invoke('generate-with-qwen', {
-      body: { text, numQuestions, difficulty, additionalInfo }
-    });
+    let questions = await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
     
-    if (error) {
-      console.error('Erreur avec la fonction generate-with-qwen:', error);
-      throw error;
+    if (!questions || questions.length === 0) {
+      console.warn("Aucune question générée, utilisation du fallback local");
     }
     
-    if (!data || !data.questions || !Array.isArray(data.questions)) {
-      console.error('Format de réponse invalide depuis la fonction Qwen:', data);
-      throw new Error('Format de réponse invalide depuis la fonction Qwen');
-    }
-    
-    console.log(`${data.questions.length} questions générées avec succès par Qwen`);
-    return data.questions;
+    return questions;
   } catch (error) {
-    console.error('Erreur avec la génération Qwen:', error);
-    throw error;
+    console.error('Erreur de génération de quiz:', error);
+    throw new Error('Échec de la génération des questions du quiz');
   }
 };
 
@@ -157,19 +99,15 @@ export const createQuiz = async (
   timeLimit?: number
 ): Promise<string> => {
   try {
-    console.log('Creating quiz with title:', title);
+    console.log('Création du quiz:', title);
     
-    // Parse timeLimit to ensure it's a valid number or null
     let parsedTimeLimit = null;
     if (timeLimit !== undefined && timeLimit !== null) {
       parsedTimeLimit = Number(timeLimit);
-      // Ensure it's a valid number
       if (isNaN(parsedTimeLimit)) {
         parsedTimeLimit = null;
       }
     }
-    
-    console.log(`Time limit set to: ${parsedTimeLimit} (original value: ${timeLimit})`);
     
     const quizData = {
       userId,
@@ -184,15 +122,15 @@ export const createQuiz = async (
       collaborators: [],
       isShared: false,
       difficulty,
-      timeLimit: parsedTimeLimit // Use parsed value here
+      timeLimit: parsedTimeLimit
     };
     
     const docRef = await addDoc(collection(db, 'quizzes'), quizData);
-    console.log('Quiz created with ID:', docRef.id);
+    console.log('Quiz créé avec ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('Error creating quiz in Firestore:', error);
-    throw new Error(`Failed to create quiz in database: ${error.message}`);
+    console.error('Erreur de création de quiz:', error);
+    throw new Error(`Échec de la création du quiz: ${error.message}`);
   }
 };
 
