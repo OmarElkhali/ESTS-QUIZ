@@ -228,8 +228,27 @@ export const updateQuiz = async (
 };
 
 export const deleteQuiz = async (quizId: string): Promise<void> => {
-  const docRef = doc(db, 'quizzes', quizId);
-  await deleteDoc(docRef);
+  try {
+    console.log('Suppression du quiz:', quizId);
+    const docRef = doc(db, 'quizzes', quizId);
+    
+    // Récupération des données du quiz avant suppression pour d'éventuelles références aux fichiers
+    const quizDoc = await getDoc(docRef);
+    if (!quizDoc.exists()) {
+      throw new Error('Quiz not found');
+    }
+    
+    // Suppression du quiz dans Firebase
+    await deleteDoc(docRef);
+    
+    // Vous pourriez ajouter ici la suppression des fichiers associés dans Supabase
+    // si vous stockez des documents pour ce quiz
+    
+    console.log('Quiz supprimé avec succès');
+  } catch (error) {
+    console.error('Erreur lors de la suppression du quiz:', error);
+    throw new Error(`Échec de la suppression du quiz: ${error.message}`);
+  }
 };
 
 export const shareQuiz = async (

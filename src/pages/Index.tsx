@@ -62,7 +62,7 @@ const Index = () => {
         <div className="container mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">
-              <h3 className="text-xl font-bold">QuizFlick</h3>
+              <h3 className="text-xl font-bold">ESTS-QUIZ</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Apprentissage optimisé par l'IA
               </p>
@@ -84,7 +84,7 @@ const Index = () => {
           <Separator className="my-6" />
           
           <p className="text-xs text-muted-foreground text-center">
-            © 2025 QuizFlick. Tous droits réservés.
+            © 2025 ESTS-QUIZ. Tous droits réservés.
           </p>
         </div>
       </footer>

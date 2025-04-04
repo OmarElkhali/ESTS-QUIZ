@@ -4,11 +4,12 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Calendar, Clock, Users, Share2, ArrowUpRight, Users2 } from 'lucide-react';
+import { Calendar, Clock, Users, Share2, ArrowUpRight, Users2, Trash2, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ShareQuizDialog } from './ShareQuizDialog';
+import { DeleteQuizDialog } from './DeleteQuizDialog';
 
 interface QuizCardProps {
   id: string;
@@ -40,6 +41,7 @@ export const QuizCard = ({
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const handleContinue = () => {
     navigate(isHistory ? `/history/${id}` : `/quiz/${id}`);
@@ -48,6 +50,16 @@ export const QuizCard = ({
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowShareDialog(true);
+  };
+  
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteDialog(true);
+  };
+  
+  const handleRetake = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/quiz/${id}`);
   };
   
   return (
@@ -74,10 +86,32 @@ export const QuizCard = ({
                   Partagé
                 </Badge>
               )}
-              {isHistory && !isShared && (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleShare}>
-                  <Share2 className="h-4 w-4" />
-                </Button>
+              {isHistory && (
+                <div className="flex space-x-1">
+                  {!isShared && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleShare}>
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" 
+                    onClick={handleDelete}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  {completionRate === 100 && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50" 
+                      onClick={handleRetake}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
             <CardTitle className="text-xl mt-3 line-clamp-1">{title}</CardTitle>
@@ -137,6 +171,12 @@ export const QuizCard = ({
         quizId={id}
         open={showShareDialog}
         onOpenChange={setShowShareDialog}
+      />
+      
+      <DeleteQuizDialog
+        quizId={id}
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
       />
     </>
   );
