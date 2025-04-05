@@ -60,6 +60,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
+      console.log(`Démarrage création de quiz: ${numQuestions} questions (${modelType})`);
       progressCallback?.('Initialisation', 5, `Création de quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       
       // 1. Télécharger le fichier
@@ -114,15 +115,23 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       
       // 5. Récupérer le nouveau quiz
       progressCallback?.('Finalisation', 95, 'Récupération des détails du quiz...');
-      const newQuiz = await quizService.getQuiz(quizId);
       
-      if (newQuiz) {
-        setQuizzes(prev => [newQuiz, ...prev]);
-        setCurrentQuiz(newQuiz);
+      try {
+        const newQuiz = await quizService.getQuiz(quizId);
+        
+        if (newQuiz) {
+          setQuizzes(prev => [newQuiz, ...prev]);
+          setCurrentQuiz(newQuiz);
+        }
+      } catch (fetchError) {
+        console.warn('Erreur lors de la récupération du quiz créé:', fetchError);
+        // On continue malgré l'erreur, le quizId est suffisant pour la redirection
       }
       
       progressCallback?.('Terminé', 100, 'Quiz créé avec succès');
+      console.log(`Quiz créé avec succès, ID: ${quizId}`);
       toast.success('Quiz créé avec succès');
+      
       return quizId;
     } catch (error: any) {
       console.error('Error creating quiz:', error);

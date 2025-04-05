@@ -17,8 +17,11 @@ const QuizPreview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<any>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    const maxRetries = 3;
     const fetchQuiz = async () => {
       if (!id) {
         setError('ID du quiz non spécifié');
@@ -28,12 +31,22 @@ const QuizPreview = () => {
       }
 
       try {
-        console.log(`Tentative de récupération du quiz: ${id}`);
+        console.log(`Tentative de récupération du quiz: ${id} (essai ${retryCount + 1}/${maxRetries})`);
         setIsLoading(true);
         setError(null);
         const quizData = await getQuiz(id);
         
         if (!quizData) {
+          if (retryCount < maxRetries - 1) {
+            console.log(`Quiz non trouvé, nouvelle tentative dans 2 secondes...`);
+            setIsRetrying(true);
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+              setIsRetrying(false);
+            }, 2000);
+            return;
+          }
+          
           setError('Quiz introuvable. Vérifiez l\'URL ou essayez de créer un nouveau quiz.');
           toast.error('Quiz introuvable');
           return;
@@ -43,30 +56,50 @@ const QuizPreview = () => {
         setQuiz(quizData);
       } catch (error: any) {
         console.error('Erreur lors du chargement du quiz:', error);
+        
+        if (retryCount < maxRetries - 1) {
+          console.log(`Erreur de chargement, nouvelle tentative dans 2 secondes...`);
+          setIsRetrying(true);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+            setIsRetrying(false);
+          }, 2000);
+          return;
+        }
+        
         setError(`Impossible de charger le quiz: ${error.message || 'Erreur inconnue'}`);
         toast.error('Impossible de charger le quiz');
       } finally {
-        setIsLoading(false);
+        if (!isRetrying) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchQuiz();
-  }, [id, getQuiz, navigate]);
+    if (!isRetrying) {
+      fetchQuiz();
+    }
+  }, [id, getQuiz, navigate, retryCount, isRetrying]);
 
   const handleStartQuiz = () => {
     if (id) {
+      console.log(`Démarrage du quiz: ${id}`);
       navigate(`/quiz/${id}`);
     }
   };
 
-  if (isLoading || contextLoading) {
+  if (isLoading || contextLoading || isRetrying) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">Chargement du quiz...</p>
+            <p className="text-muted-foreground">
+              {isRetrying 
+                ? `Tentative de récupération du quiz... (${retryCount + 1}/3)` 
+                : 'Chargement du quiz...'}
+            </p>
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -43,11 +44,13 @@ export const QuizForm = () => {
     let timer: NodeJS.Timeout;
     
     if (quizCreated && createdQuizId && redirectCounter > 0) {
+      console.log(`Redirection dans ${redirectCounter} secondes vers /quiz/${createdQuizId}`);
       timer = setTimeout(() => {
         setRedirectCounter(prev => prev - 1);
       }, 1000);
     } else if (quizCreated && createdQuizId && redirectCounter === 0) {
-      navigate(`/quiz/${createdQuizId}`);
+      console.log(`Redirection immédiate vers /quiz/${createdQuizId}`);
+      navigate(`/quiz-preview/${createdQuizId}`);
     }
     
     return () => {
@@ -68,7 +71,15 @@ export const QuizForm = () => {
     setError(null);
     
     if (quizCreated && createdQuizId) {
-      navigate(`/quiz/${createdQuizId}`);
+      console.log(`Redirection manuelle vers /quiz-preview/${createdQuizId}`);
+      navigate(`/quiz-preview/${createdQuizId}`);
+    }
+  };
+  
+  const handleRedirectNow = () => {
+    if (createdQuizId) {
+      console.log(`Redirection manuelle vers /quiz-preview/${createdQuizId}`);
+      navigate(`/quiz-preview/${createdQuizId}`);
     }
   };
   
@@ -204,7 +215,7 @@ export const QuizForm = () => {
               <div className="flex space-x-3">
                 <Button 
                   className="w-full bg-green-600 hover:bg-green-700"
-                  onClick={() => navigate(`/quiz/${createdQuizId}`)}
+                  onClick={handleRedirectNow}
                 >
                   Voir le quiz maintenant
                 </Button>
