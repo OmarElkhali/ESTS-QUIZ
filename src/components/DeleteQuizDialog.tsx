@@ -32,11 +32,15 @@ export const DeleteQuizDialog = ({
     try {
       // S'assurer que la suppression se fait correctement dans la base de données
       await deleteQuiz(quizId);
+      
+      // Afficher le toast seulement une fois la suppression confirmée
       toast.success("Quiz supprimé avec succès");
+      
+      // Fermer la boîte de dialogue après confirmation de suppression
       onOpenChange(false);
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
-      toast.error("Impossible de supprimer le quiz");
+      toast.error("Impossible de supprimer le quiz. Veuillez réessayer.");
     } finally {
       setIsDeleting(false);
     }
