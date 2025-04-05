@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { 
   collection, 
@@ -33,6 +34,7 @@ export const extractTextFromFile = async (fileUrl: string, fileType: string): Pr
   try {
     console.log(`Extraction du texte de ${fileUrl} (${fileType})`);
     
+    // Define the demo text (fallback content) to use when extraction fails
     const demoText = `
     L'intelligence artificielle (IA) est un ensemble de technologies qui permet aux machines d'accomplir des tâches qui nécessitent 
     normalement l'intelligence humaine. Cela comprend l'apprentissage automatique, le traitement du langage naturel, 
@@ -99,6 +101,12 @@ export const extractTextFromFile = async (fileUrl: string, fileType: string): Pr
     return demoText + " Document traité avec succès.";
   } catch (error) {
     console.error('Erreur d\'extraction de texte:', error);
+    // Define the fallback demo text again for the catch block
+    const demoText = `
+    L'intelligence artificielle (IA) est un ensemble de technologies qui permet aux machines d'accomplir des tâches qui nécessitent 
+    normalement l'intelligence humaine. Cela comprend l'apprentissage automatique, le traitement du langage naturel, 
+    la vision par ordinateur et la robotique.
+    `;
     return "Contenu de secours pour la génération de quiz. " + demoText;
   }
 };
