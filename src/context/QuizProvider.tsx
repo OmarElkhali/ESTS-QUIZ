@@ -135,9 +135,11 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   
   // Fonctions simplifiées pour le contexte
   const getQuiz = async (id: string) => {
+    console.log(`Récupération du quiz avec ID: ${id}`);
     setIsLoading(true);
     try {
       const quiz = await quizService.getQuiz(id);
+      console.log('Quiz récupéré:', quiz);
       setCurrentQuiz(quiz);
       return quiz;
     } catch (error) {

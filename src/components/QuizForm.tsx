@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { FileUpload } from './FileUpload';
 import { toast } from 'sonner';
-import { BrainCircuit, Share2, ArrowRight, Loader2, Clock, AlertCircle } from 'lucide-react';
+import { BrainCircuit, Share2, ArrowRight, Loader2, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '@/hooks/useQuiz';
@@ -32,16 +32,48 @@ export const QuizForm = () => {
   const [modelType, setModelType] = useState<'qwen' | 'gemini'>('gemini');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quizCreated, setQuizCreated] = useState(false);
+  const [redirectCounter, setRedirectCounter] = useState(5);
+  const [createdQuizId, setCreatedQuizId] = useState<string | null>(null);
   
   // Gestion de progression
   const [progressStage, setProgressStage] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressLogs, setProgressLogs] = useState<string[]>([]);
   
+  // Effet pour la redirection automatique
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    
+    if (quizCreated && createdQuizId && redirectCounter > 0) {
+      timer = setTimeout(() => {
+        setRedirectCounter(prev => prev - 1);
+      }, 1000);
+    } else if (quizCreated && createdQuizId && redirectCounter === 0) {
+      navigate(`/quiz/${createdQuizId}`);
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [quizCreated, redirectCounter, createdQuizId, navigate]);
+  
   const handleFileSelect = (file: File) => {
     setFile(file);
     setError(null);
     toast.success('Fichier téléchargé avec succès');
+  };
+  
+  const handleCancel = () => {
+    setIsSubmitting(false);
+    setProgressLogs([]);
+    setProgressPercent(0);
+    setError(null);
+    
+    // Si le quiz a été créé mais qu'on annule la redirection
+    if (quizCreated && createdQuizId) {
+      navigate(`/quiz/${createdQuizId}`);
+    }
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,12 +91,15 @@ export const QuizForm = () => {
     
     setError(null);
     setIsSubmitting(true);
+    setQuizCreated(false);
+    setCreatedQuizId(null);
     setProgressLogs([]);
     setProgressStage('Initialisation');
     setProgressPercent(5);
     
     const addLog = (message: string) => {
       setProgressLogs(prev => [...prev, message]);
+      console.log(`[Quiz Generation]: ${message}`);
     };
     
     try {
@@ -73,6 +108,7 @@ export const QuizForm = () => {
       setProgressPercent(15);
       
       const statusCallback = (stage: string, percent: number, message?: string) => {
+        console.log(`[Quiz Progress] ${stage}: ${percent}% - ${message || ''}`);
         setProgressStage(stage);
         setProgressPercent(percent);
         if (message) addLog(message);
@@ -90,20 +126,23 @@ export const QuizForm = () => {
       );
       
       addLog('Génération terminée avec succès!');
+      addLog(`Quiz créé avec l'ID: ${quizId}`);
       setProgressStage('Terminé');
       setProgressPercent(100);
       
-      setTimeout(() => {
-        toast.success(`${numQuestions} questions générées à partir de vos documents!`);
-        navigate(`/quiz/${quizId}`);
-      }, 1500);
+      // Marquer le quiz comme créé et préparer la redirection
+      setQuizCreated(true);
+      setCreatedQuizId(quizId);
+      setRedirectCounter(5);
+      
+      toast.success(`${numQuestions} questions générées à partir de vos documents!`);
     } catch (error: any) {
       console.error("Erreur lors de la création du quiz:", error);
       setError(error.message || "Erreur inconnue lors de la création du quiz");
       addLog(`ERREUR: ${error.message || "Erreur inconnue"}`);
       toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(true); // Garder l'interface de soumission visible pour voir les logs d'erreur
+      setQuizCreated(false);
     }
   };
   
@@ -157,17 +196,45 @@ export const QuizForm = () => {
             )}
           </div>
           
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => {
-              setIsSubmitting(false);
-              setProgressLogs([]);
-              setProgressPercent(0);
-            }}
-          >
-            Annuler
-          </Button>
+          {quizCreated && createdQuizId ? (
+            <div className="space-y-4">
+              <Alert variant="success" className="bg-green-50 border-green-200">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800">Quiz créé avec succès</AlertTitle>
+                <AlertDescription className="text-green-700">
+                  Redirection automatique vers votre quiz dans {redirectCounter} secondes...
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex space-x-3">
+                <Button 
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  onClick={() => navigate(`/quiz/${createdQuizId}`)}
+                >
+                  Voir le quiz maintenant
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    setIsSubmitting(false);
+                    setQuizCreated(false);
+                    setFile(null);
+                  }}
+                >
+                  Créer un autre quiz
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleCancel}
+            >
+              Annuler
+            </Button>
+          )}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">

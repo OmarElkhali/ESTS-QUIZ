@@ -17,6 +17,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Démarrage de generate-with-qwen");
+    
     // Analyser le corps de la requête
     let requestBody;
     try {
@@ -24,7 +26,11 @@ serve(async (req) => {
     } catch (parseError) {
       console.error("Erreur de parsing JSON:", parseError);
       return new Response(
-        JSON.stringify({ error: "Format de requête invalide" }),
+        JSON.stringify({ 
+          error: "Format de requête invalide", 
+          details: parseError.message,
+          recevied: await req.text()
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -95,6 +101,10 @@ serve(async (req) => {
 
     console.log("Envoi de la requête à OpenRouter.ai avec le modèle Qwen");
     
+    // Définir un timeout plus court pour éviter les attentes infinies
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180000); // 3 minutes
+    
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -118,8 +128,11 @@ serve(async (req) => {
           ],
           "temperature": 0.3,
           "response_format": { "type": "json_object" }
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeout);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -252,27 +265,27 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (openRouterError) {
+      clearTimeout(timeout);
       console.error('Erreur lors de l\'appel à OpenRouter:', openRouterError);
       
-      // Générer des questions de secours
-      const fallbackQuestions = [];
-      for (let i = 0; i < numQuestions; i++) {
-        fallbackQuestions.push({
-          id: `q${i+1}`,
-          text: `Question ${i+1} sur le texte?`,
-          options: [
-            {id: `q${i+1}_a`, text: "Option A", isCorrect: true},
-            {id: `q${i+1}_b`, text: "Option B", isCorrect: false},
-            {id: `q${i+1}_c`, text: "Option C", isCorrect: false},
-            {id: `q${i+1}_d`, text: "Option D", isCorrect: false},
-          ],
-          explanation: "Explication (généré en mode secours).",
-          difficulty: difficulty
+      if (openRouterError.name === 'AbortError') {
+        console.log('La requête à OpenRouter a été interrompue après un timeout');
+        return new Response(JSON.stringify({ 
+          error: "La génération de questions a pris trop de temps et a été annulée",
+          fallbackQuestions: generateFallbackQuestions(numQuestions, difficulty)
+        }), {
+          status: 408,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       
+      // Générer des questions de secours
+      const fallbackQuestions = generateFallbackQuestions(numQuestions, difficulty);
+      console.log('Utilisation de questions de secours en raison des erreurs API');
+      
       return new Response(JSON.stringify({ 
         warning: "Utilisation du mode secours en raison d'une erreur d'API",
+        details: openRouterError.message,
         questions: fallbackQuestions
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -282,10 +295,31 @@ serve(async (req) => {
     console.error('Erreur générale dans generate-with-qwen:', error);
     return new Response(JSON.stringify({ 
       error: error.message || 'Une erreur inconnue est survenue',
-      errorDetail: error.toString()
+      errorDetail: error.toString(),
+      fallbackQuestions: generateFallbackQuestions(5, "medium")
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+// Fonction utilitaire pour générer des questions de secours
+function generateFallbackQuestions(numQuestions: number, difficulty: string): any[] {
+  const fallbackQuestions = [];
+  for (let i = 0; i < numQuestions; i++) {
+    fallbackQuestions.push({
+      id: `q${i+1}`,
+      text: `Question ${i+1} sur le texte (générée en mode secours)?`,
+      options: [
+        {id: `q${i+1}_a`, text: "Option A", isCorrect: true},
+        {id: `q${i+1}_b`, text: "Option B", isCorrect: false},
+        {id: `q${i+1}_c`, text: "Option C", isCorrect: false},
+        {id: `q${i+1}_d`, text: "Option D", isCorrect: false},
+      ],
+      explanation: "Explication (générée en mode secours).",
+      difficulty: difficulty
+    });
+  }
+  return fallbackQuestions;
+}

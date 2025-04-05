@@ -5,36 +5,45 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuiz } from '@/hooks/useQuiz';
 import { Navbar } from '@/components/Navbar';
-import { BookOpen, Timer, Info, ListChecks, ArrowRight, Loader2 } from 'lucide-react';
+import { BookOpen, Timer, Info, ListChecks, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const QuizPreview = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getQuiz } = useQuiz();
+  const { getQuiz, isLoading: contextLoading } = useQuiz();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<any>(null);
 
   useEffect(() => {
     const fetchQuiz = async () => {
       if (!id) {
+        setError('ID du quiz non spécifié');
         toast.error('ID du quiz non spécifié');
         navigate('/');
         return;
       }
 
       try {
+        console.log(`Tentative de récupération du quiz: ${id}`);
+        setIsLoading(true);
+        setError(null);
         const quizData = await getQuiz(id);
+        
         if (!quizData) {
+          setError('Quiz introuvable. Vérifiez l\'URL ou essayez de créer un nouveau quiz.');
           toast.error('Quiz introuvable');
-          navigate('/');
           return;
         }
         
+        console.log('Quiz récupéré avec succès:', quizData);
         setQuiz(quizData);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erreur lors du chargement du quiz:', error);
+        setError(`Impossible de charger le quiz: ${error.message || 'Erreur inconnue'}`);
         toast.error('Impossible de charger le quiz');
       } finally {
         setIsLoading(false);
@@ -50,7 +59,7 @@ const QuizPreview = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || contextLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -64,6 +73,27 @@ const QuizPreview = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erreur</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <div className="flex justify-center mt-4">
+              <Button onClick={() => navigate('/create-quiz')} className="mr-2">Créer un nouveau quiz</Button>
+              <Button variant="outline" onClick={() => navigate('/')}>Retour à l'accueil</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!quiz) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -71,7 +101,8 @@ const QuizPreview = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-xl font-semibold mb-4">Quiz introuvable</p>
-            <Button onClick={() => navigate('/')}>Retour à l'accueil</Button>
+            <Button onClick={() => navigate('/create-quiz')} className="mr-2">Créer un nouveau quiz</Button>
+            <Button variant="outline" onClick={() => navigate('/')}>Retour à l'accueil</Button>
           </div>
         </div>
       </div>
