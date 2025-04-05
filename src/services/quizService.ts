@@ -1,4 +1,3 @@
-
 import { db } from '@/lib/firebase';
 import { 
   collection, 
@@ -115,7 +114,8 @@ export const generateQuizQuestions = async (
   numQuestions: number,
   difficulty: 'easy' | 'medium' | 'hard' = 'medium',
   additionalInfo?: string,
-  modelType: 'qwen' | 'gemini' = 'qwen'
+  modelType: 'qwen' | 'gemini' = 'qwen',
+  progressCallback?: (progress: number) => void
 ): Promise<Question[]> => {
   try {
     console.log(`Génération de ${numQuestions} questions avec le modèle ${modelType}...`);
