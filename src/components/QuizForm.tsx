@@ -6,13 +6,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { FileUpload } from './FileUpload';
 import { toast } from 'sonner';
-import { BrainCircuit, Share2, ArrowRight, Loader2, Clock } from 'lucide-react';
+import { BrainCircuit, Share2, ArrowRight, Loader2, Clock, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export const QuizForm = () => {
   const navigate = useNavigate();
@@ -25,10 +27,13 @@ export const QuizForm = () => {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [enableTimeLimit, setEnableTimeLimit] = useState(false);
   const [timeLimit, setTimeLimit] = useState(30); // minutes
-  const [modelType, setModelType] = useState<'qwen' | 'gemini'>('qwen');
+  const [modelType, setModelType] = useState<'qwen' | 'gemini'>('gemini');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleFileSelect = (file: File) => {
     setFile(file);
+    setError(null);
     toast.success('Fichier téléchargé avec succès');
   };
   
@@ -44,6 +49,9 @@ export const QuizForm = () => {
       toast.error('Veuillez télécharger un fichier de cours');
       return;
     }
+    
+    setError(null);
+    setIsSubmitting(true);
     
     try {
       console.log(`Création d'un quiz avec ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
@@ -63,7 +71,10 @@ export const QuizForm = () => {
       navigate(`/quiz/${quizId}`);
     } catch (error: any) {
       console.error("Erreur lors de la création du quiz:", error);
+      setError(error.message || "Erreur inconnue lors de la création du quiz");
       toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -81,6 +92,16 @@ export const QuizForm = () => {
         <h2 className="text-2xl font-bold">Créer votre Quiz</h2>
       </div>
       
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erreur</AlertTitle>
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="file-upload">Télécharger votre document</Label>
@@ -92,23 +113,33 @@ export const QuizForm = () => {
         
         <div className="space-y-4">
           <Label>Modèle d'IA pour la génération</Label>
-          <Select
-            value={modelType}
-            onValueChange={(value) => setModelType(value as 'qwen' | 'gemini')}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner un modèle d'IA" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="qwen">Qwen via OpenRouter (Recommandé)</SelectItem>
-              <SelectItem value="gemini">Google Gemini</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            {modelType === 'qwen' 
-              ? "Qwen - Modèle performant optimisé pour les contenus éducatifs (via OpenRouter)"
-              : "Google Gemini - Alternative puissante pour la génération de quiz"}
-          </p>
+          <Card className="border border-muted p-4">
+            <CardContent className="p-0 space-y-4">
+              <div className="flex space-x-2">
+                <Button
+                  type="button"
+                  variant={modelType === 'gemini' ? "default" : "outline"}
+                  onClick={() => setModelType('gemini')}
+                  className="flex-1"
+                >
+                  Google Gemini
+                </Button>
+                <Button
+                  type="button"
+                  variant={modelType === 'qwen' ? "default" : "outline"}
+                  onClick={() => setModelType('qwen')}
+                  className="flex-1"
+                >
+                  Qwen (OpenRouter)
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {modelType === 'qwen' 
+                  ? "Qwen via OpenRouter - Optimisé pour générer des quiz en français"
+                  : "Google Gemini - Modèle puissant pour la génération de quiz éducatifs"}
+              </p>
+            </CardContent>
+          </Card>
         </div>
         
         <div className="space-y-4">
@@ -205,9 +236,9 @@ export const QuizForm = () => {
           <Button 
             type="submit" 
             className="w-full btn-shine"
-            disabled={isLoading || !file || !user}
+            disabled={isSubmitting || !file || !user}
           >
-            {isLoading ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Génération en cours...

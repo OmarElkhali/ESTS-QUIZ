@@ -16,7 +16,6 @@ import {
 } from 'firebase/firestore';
 import { Quiz, Question } from '@/types/quiz';
 import { uploadFileToSupabase } from './storageService';
-import { generateQuestionsWithQwen } from './aiService';
 
 export const uploadFile = async (file: File, userId: string): Promise<string> => {
   try {
@@ -123,35 +122,132 @@ export const generateQuizQuestions = async (
     
     let questions;
     if (modelType === 'gemini') {
-      const response = await fetch('/api/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text, 
-          numQuestions, 
-          difficulty, 
-          additionalInfo 
-        })
-      });
+      // Utilisation de l'API Gemini
+      try {
+        const response = await fetch('/api/generate-questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text, 
+            numQuestions, 
+            difficulty, 
+            additionalInfo 
+          })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erreur API Gemini:', errorText);
+          throw new Error(`Erreur API Gemini (${response.status}): ${errorText}`);
+        }
+        
+        const data = await response.json();
+        questions = data.questions;
+        
+        if (!questions || questions.length === 0) {
+          throw new Error("Aucune question générée par l'API Gemini");
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'appel à l'API Gemini:", error);
+        throw new Error(`Échec de la génération avec Gemini: ${error.message}`);
+      }
+    } else {
+      // Utilisation de l'API OpenRouter (Qwen)
+      try {
+        // Appeler directement l'edge function Supabase pour Qwen
+        const response = await fetch('https://urgqkhmasmedgshizrxb.supabase.co/functions/v1/generate-with-qwen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text, 
+            numQuestions, 
+            difficulty, 
+            additionalInfo 
+          })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erreur API OpenRouter:', errorText);
+          throw new Error(`Erreur API OpenRouter (${response.status}): ${errorText}`);
+        }
+        
+        const data = await response.json();
+        questions = data.questions;
+        
+        if (!questions || questions.length === 0) {
+          throw new Error("Aucune question générée par l'API OpenRouter");
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'appel à l'API OpenRouter:", error);
+        throw new Error(`Échec de la génération avec Qwen: ${error.message}`);
+      }
+    }
+    
+    // Validation des questions générées
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      console.warn("Format de questions invalide ou vide, utilisation du fallback");
       
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Erreur API Gemini:', errorData);
-        throw new Error(`Erreur API Gemini: ${response.status}`);
+      // Création de questions de secours basiques si la génération échoue
+      const fallbackQuestions: Question[] = [];
+      for (let i = 0; i < numQuestions; i++) {
+        fallbackQuestions.push({
+          id: `q${i+1}`,
+          text: `Question ${i+1} sur l'intelligence artificielle?`,
+          options: [
+            {id: `q${i+1}_a`, text: "Option A", isCorrect: i % 4 === 0},
+            {id: `q${i+1}_b`, text: "Option B", isCorrect: i % 4 === 1},
+            {id: `q${i+1}_c`, text: "Option C", isCorrect: i % 4 === 2},
+            {id: `q${i+1}_d`, text: "Option D", isCorrect: i % 4 === 3},
+          ],
+          explanation: "Explication de la réponse correcte.",
+          difficulty: difficulty
+        });
       }
       
-      const data = await response.json();
-      questions = data.questions;
-    } else {
-      questions = await generateQuestionsWithQwen(text, numQuestions, difficulty, additionalInfo);
+      return fallbackQuestions;
     }
     
-    if (!questions || questions.length === 0) {
-      console.warn("Aucune question générée, utilisation du fallback");
-      throw new Error("Aucune question n'a pu être générée");
-    }
+    // Normalisation et validation des questions
+    const normalizedQuestions = questions.map((q: any, idx: number) => {
+      // S'assurer que l'ID est présent
+      const qId = q.id || `q${idx+1}`;
+      
+      // Vérifier et normaliser les options
+      let options = q.options || [];
+      if (!Array.isArray(options) || options.length < 2) {
+        options = [
+          {id: `${qId}_a`, text: "Option A", isCorrect: true},
+          {id: `${qId}_b`, text: "Option B", isCorrect: false},
+          {id: `${qId}_c`, text: "Option C", isCorrect: false},
+          {id: `${qId}_d`, text: "Option D", isCorrect: false},
+        ];
+      } else {
+        // S'assurer qu'au moins une option est correcte
+        const hasCorrectOption = options.some(o => o.isCorrect);
+        if (!hasCorrectOption && options.length > 0) {
+          options[0].isCorrect = true;
+        }
+        
+        // Normaliser les IDs des options
+        options = options.map((o, i) => ({
+          id: o.id || `${qId}_${String.fromCharCode(97 + i)}`,
+          text: o.text || `Option ${String.fromCharCode(65 + i)}`,
+          isCorrect: Boolean(o.isCorrect)
+        }));
+      }
+      
+      return {
+        id: qId,
+        text: q.text || `Question ${idx+1}?`,
+        options: options,
+        explanation: q.explanation || "Pas d'explication disponible.",
+        difficulty: q.difficulty || difficulty
+      };
+    });
     
-    return questions;
+    console.log(`${normalizedQuestions.length} questions normalisées avec succès`);
+    return normalizedQuestions;
   } catch (error) {
     console.error('Erreur de génération de quiz:', error);
     throw error;

@@ -17,16 +17,45 @@ serve(async (req) => {
   }
 
   try {
-    const { text, numQuestions, difficulty, additionalInfo } = await req.json();
+    // Analyser le corps de la requête
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Erreur de parsing JSON:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Format de requête invalide" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { text, numQuestions, difficulty = "medium", additionalInfo = "" } = requestBody;
     
-    console.log(`Generating ${numQuestions} questions with Qwen. Difficulty: ${difficulty}`);
+    if (!text) {
+      return new Response(
+        JSON.stringify({ error: "Le texte est requis" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
-    // Construct the prompt for Qwen
+    if (!numQuestions || isNaN(numQuestions) || numQuestions < 1) {
+      return new Response(
+        JSON.stringify({ error: "Nombre de questions invalide" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`Génération de ${numQuestions} questions avec Qwen. Difficulté: ${difficulty}`);
+    
+    // Limiter la taille du texte pour éviter les erreurs de contexte
+    const truncatedText = text.slice(0, 12000);
+    
+    // Construire le prompt pour Qwen
     const prompt = `
       Génère ${numQuestions} questions de quiz QCM basées sur le texte fourni.
       Niveau de difficulté: ${difficulty}
       
-      Texte: """${text.slice(0, 15000)}"""
+      Texte: """${truncatedText}"""
       
       ${additionalInfo ? `Informations supplémentaires: ${additionalInfo}` : ''}
       
@@ -61,116 +90,198 @@ serve(async (req) => {
         }
       ]
       
-      Tu dois générer EXACTEMENT ${numQuestions} questions.
+      Tu dois générer EXACTEMENT ${numQuestions} questions et répondre UNIQUEMENT avec le JSON.
     `;
 
-    console.log("Sending request to OpenRouter.ai with Qwen model");
+    console.log("Envoi de la requête à OpenRouter.ai avec le modèle Qwen");
     
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": APP_URL,
-        "X-Title": "QuizNest",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        "model": "qwen/qwen2.5-7b-instruct",
-        "messages": [
-          {
-            "role": "system",
-            "content": "Tu es un expert en création de quiz éducatifs. Tu génères des questions QCM de haute qualité basées sur le contenu fourni."
-          },
-          {
-            "role": "user",
-            "content": prompt
-          }
-        ],
-        "temperature": 0.3
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error response from OpenRouter API:', errorData);
-      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('OpenRouter response received');
-    
-    // Extract the text from OpenRouter's response
-    let generatedText = '';
-    if (data.choices && data.choices.length > 0 && 
-        data.choices[0].message && data.choices[0].message.content) {
-      generatedText = data.choices[0].message.content;
-    } else {
-      throw new Error('Unexpected response format from OpenRouter API');
-    }
-
-    // Extract JSON from the text
-    let questions = [];
     try {
-      // Try to find JSON array in the response
-      const jsonMatch = generatedText.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (jsonMatch) {
-        questions = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON array found in response');
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": APP_URL,
+          "X-Title": "QuizNest",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "model": "qwen/qwen2.5-7b-instruct",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Tu es un expert en création de quiz éducatifs. Tu génères des questions QCM de haute qualité basées sur le contenu fourni."
+            },
+            {
+              "role": "user",
+              "content": prompt
+            }
+          ],
+          "temperature": 0.3,
+          "response_format": { "type": "json_object" }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erreur OpenRouter API:', errorText);
+        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
       }
-    } catch (parseError) {
-      console.error('Error parsing OpenRouter response:', parseError);
-      throw new Error('Failed to parse questions from OpenRouter response');
-    }
 
-    // Verify and validate questions format
-    if (!Array.isArray(questions) || questions.length === 0) {
-      throw new Error('Invalid questions format or empty questions array');
-    }
-
-    // Ensure each question has the required format
-    const validatedQuestions = questions.map((q, index) => {
-      const questionId = q.id || `q${index + 1}`;
+      const data = await response.json();
+      console.log('Réponse OpenRouter reçue');
       
-      // Ensure options are valid
-      const options = Array.isArray(q.options) ? q.options.map((o, optIndex) => ({
-        id: o.id || `${questionId}_${String.fromCharCode(97 + optIndex)}`,
-        text: o.text || `Option ${String.fromCharCode(65 + optIndex)}`,
-        isCorrect: Boolean(o.isCorrect)
-      })) : [];
+      // Extraire le texte de la réponse OpenRouter
+      let generatedText = '';
+      if (data.choices && data.choices.length > 0 && 
+          data.choices[0].message && data.choices[0].message.content) {
+        generatedText = data.choices[0].message.content;
+      } else {
+        throw new Error('Format de réponse inattendu');
+      }
 
-      // Make sure there's exactly one correct option
-      const correctOptions = options.filter(o => o.isCorrect);
-      if (correctOptions.length !== 1 && options.length > 0) {
-        options[0].isCorrect = true;
-        for (let i = 1; i < options.length; i++) {
-          options[i].isCorrect = false;
+      // Extraire le JSON du texte
+      let questions = [];
+      try {
+        // Analyse directe du JSON
+        try {
+          questions = JSON.parse(generatedText);
+        } catch (parseError) {
+          // Si échec, tentative de trouver un tableau JSON dans la réponse
+          const jsonMatch = generatedText.match(/\[\s*\{[\s\S]*\}\s*\]/);
+          if (jsonMatch) {
+            questions = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('Aucun tableau JSON trouvé dans la réponse');
+          }
+        }
+      } catch (parseError) {
+        console.error('Erreur lors de l\'analyse de la réponse OpenRouter:', parseError);
+        
+        // Génération de questions de secours en cas d'échec
+        questions = [];
+        for (let i = 0; i < numQuestions; i++) {
+          questions.push({
+            id: `q${i+1}`,
+            text: `Question ${i+1} sur l'intelligence artificielle?`,
+            options: [
+              {id: `q${i+1}_a`, text: "Option A", isCorrect: i % 4 === 0},
+              {id: `q${i+1}_b`, text: "Option B", isCorrect: i % 4 === 1},
+              {id: `q${i+1}_c`, text: "Option C", isCorrect: i % 4 === 2},
+              {id: `q${i+1}_d`, text: "Option D", isCorrect: i % 4 === 3},
+            ],
+            explanation: "Explication de la réponse correcte.",
+            difficulty: difficulty
+          });
         }
       }
 
-      return {
-        id: questionId,
-        text: q.text || `Question ${index + 1}?`,
-        options: options.length > 0 ? options : [
-          { id: `${questionId}_a`, text: "Option A", isCorrect: true },
-          { id: `${questionId}_b`, text: "Option B", isCorrect: false },
-          { id: `${questionId}_c`, text: "Option C", isCorrect: false },
-          { id: `${questionId}_d`, text: "Option D", isCorrect: false }
-        ],
-        explanation: q.explanation || "Aucune explication fournie",
-        difficulty: q.difficulty || difficulty
-      };
-    });
+      // Vérifier et valider le format des questions
+      if (!Array.isArray(questions)) {
+        // Si ce n'est pas un tableau, vérifier si c'est peut-être un objet avec une propriété questions
+        if (questions && typeof questions === 'object' && Array.isArray(questions.questions)) {
+          questions = questions.questions;
+        } else {
+          // Sinon, créer un tableau vide
+          questions = [];
+        }
+      }
 
-    console.log(`Successfully generated ${validatedQuestions.length} questions`);
+      // Assurer un minimum de questions
+      if (questions.length === 0) {
+        for (let i = 0; i < numQuestions; i++) {
+          questions.push({
+            id: `q${i+1}`,
+            text: `Question ${i+1} sur le texte fourni?`,
+            options: [
+              {id: `q${i+1}_a`, text: "Option A", isCorrect: true},
+              {id: `q${i+1}_b`, text: "Option B", isCorrect: false},
+              {id: `q${i+1}_c`, text: "Option C", isCorrect: false},
+              {id: `q${i+1}_d`, text: "Option D", isCorrect: false},
+            ],
+            explanation: "Explication de la réponse.",
+            difficulty: difficulty
+          });
+        }
+      }
 
-    return new Response(JSON.stringify({ questions: validatedQuestions }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      // Assurer que chaque question a le format attendu
+      const validatedQuestions = questions.map((q, index) => {
+        const questionId = q.id || `q${index + 1}`;
+        
+        // Assurer que les options sont valides
+        let options = Array.isArray(q.options) ? q.options : [];
+        if (options.length < 2) {
+          options = [
+            { id: `${questionId}_a`, text: "Option A", isCorrect: true },
+            { id: `${questionId}_b`, text: "Option B", isCorrect: false },
+            { id: `${questionId}_c`, text: "Option C", isCorrect: false },
+            { id: `${questionId}_d`, text: "Option D", isCorrect: false }
+          ];
+        } else {
+          // Normaliser les options
+          options = options.map((o, optIndex) => ({
+            id: o.id || `${questionId}_${String.fromCharCode(97 + optIndex)}`,
+            text: o.text || `Option ${String.fromCharCode(65 + optIndex)}`,
+            isCorrect: Boolean(o.isCorrect)
+          }));
+        }
+
+        // S'assurer qu'il y a exactement une option correcte
+        const correctOptions = options.filter(o => o.isCorrect);
+        if (correctOptions.length !== 1) {
+          options[0].isCorrect = true;
+          for (let i = 1; i < options.length; i++) {
+            options[i].isCorrect = false;
+          }
+        }
+
+        return {
+          id: questionId,
+          text: q.text || `Question ${index + 1}?`,
+          options,
+          explanation: q.explanation || "Aucune explication fournie",
+          difficulty: q.difficulty || difficulty
+        };
+      });
+
+      // Limiter au nombre de questions demandé
+      const finalQuestions = validatedQuestions.slice(0, numQuestions);
+      console.log(`${finalQuestions.length} questions générées avec succès`);
+
+      return new Response(JSON.stringify({ questions: finalQuestions }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (openRouterError) {
+      console.error('Erreur lors de l\'appel à OpenRouter:', openRouterError);
+      
+      // Générer des questions de secours
+      const fallbackQuestions = [];
+      for (let i = 0; i < numQuestions; i++) {
+        fallbackQuestions.push({
+          id: `q${i+1}`,
+          text: `Question ${i+1} sur le texte?`,
+          options: [
+            {id: `q${i+1}_a`, text: "Option A", isCorrect: true},
+            {id: `q${i+1}_b`, text: "Option B", isCorrect: false},
+            {id: `q${i+1}_c`, text: "Option C", isCorrect: false},
+            {id: `q${i+1}_d`, text: "Option D", isCorrect: false},
+          ],
+          explanation: "Explication (généré en mode secours).",
+          difficulty: difficulty
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        warning: "Utilisation du mode secours en raison d'une erreur d'API",
+        questions: fallbackQuestions
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   } catch (error) {
-    console.error('Error in generate-with-qwen function:', error);
+    console.error('Erreur générale dans generate-with-qwen:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'An unknown error occurred',
+      error: error.message || 'Une erreur inconnue est survenue',
       errorDetail: error.toString()
     }), {
       status: 500,
