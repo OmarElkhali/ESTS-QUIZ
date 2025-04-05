@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import * as quizService from '@/services/quizService';
 
+type ProgressCallback = (stage: string, percent: number, message?: string) => void;
+
 export const QuizProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -47,7 +49,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     timeLimit?: number,
     additionalInfo?: string,
     apiKey?: string,
-    modelType: 'qwen' | 'gemini' = 'qwen'
+    modelType: 'qwen' | 'gemini' = 'qwen',
+    progressCallback?: ProgressCallback
   ): Promise<string> => {
     if (!user) {
       toast.error('Veuillez vous connecter pour créer un quiz');
@@ -57,37 +60,44 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      console.log(`Création de quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
+      progressCallback?.('Initialisation', 5, `Création de quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       
       // 1. Télécharger le fichier
+      progressCallback?.('Téléchargement du fichier', 15, 'Téléchargement du fichier sur le serveur...');
       const fileUrl = await quizService.uploadFile(file, user.id);
-      console.log('Fichier téléchargé:', fileUrl);
+      progressCallback?.('Téléchargement terminé', 25, `Fichier téléchargé: ${file.name}`);
       
       // 2. Extraire le texte
+      progressCallback?.('Extraction du texte', 30, 'Extraction du texte depuis le document...');
       const text = await quizService.extractTextFromFile(fileUrl, file.type);
-      console.log(`Texte extrait: ${text.length} caractères`);
+      progressCallback?.('Extraction terminée', 40, `Texte extrait: ${text.length} caractères`);
       
       if (!text || text.length < 50) {
         throw new Error("Impossible d'extraire suffisamment de texte du document");
       }
       
       // 3. Générer les questions
-      console.log(`Génération de ${numQuestions} questions avec ${modelType}...`);
+      progressCallback?.('Génération des questions', 45, `Génération de ${numQuestions} questions avec ${modelType}...`);
       const questions = await quizService.generateQuizQuestions(
         text,
         numQuestions,
         difficulty,
         additionalInfo,
-        modelType
+        modelType,
+        (progress: number) => {
+          const percent = 45 + Math.round(progress * 30);
+          progressCallback?.('Génération des questions', percent, `Progression: ${Math.round(progress * 100)}%`);
+        }
       );
       
       if (!questions || questions.length === 0) {
         throw new Error("Impossible de générer des questions");
       }
       
-      console.log(`${questions.length} questions générées`);
+      progressCallback?.('Questions générées', 75, `${questions.length} questions générées`);
       
       // 4. Sauvegarder le quiz
+      progressCallback?.('Sauvegarde du quiz', 80, 'Sauvegarde du quiz dans la base de données...');
       const title = file.name.split('.')[0];
       const description = additionalInfo || 'Quiz généré par IA basé sur vos documents.';
       
@@ -100,9 +110,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         timeLimit
       );
       
-      console.log(`Quiz créé: ${quizId}`);
+      progressCallback?.('Quiz sauvegardé', 90, `Quiz créé avec l'identifiant: ${quizId}`);
       
       // 5. Récupérer le nouveau quiz
+      progressCallback?.('Finalisation', 95, 'Récupération des détails du quiz...');
       const newQuiz = await quizService.getQuiz(quizId);
       
       if (newQuiz) {
@@ -110,6 +121,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         setCurrentQuiz(newQuiz);
       }
       
+      progressCallback?.('Terminé', 100, 'Quiz créé avec succès');
       toast.success('Quiz créé avec succès');
       return quizId;
     } catch (error: any) {

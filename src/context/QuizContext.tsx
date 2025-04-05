@@ -2,6 +2,8 @@
 import { createContext } from 'react';
 import { Quiz } from '@/types/quiz';
 
+type ProgressCallback = (stage: string, percent: number, message?: string) => void;
+
 interface QuizContextType {
   quizzes: Quiz[];
   sharedQuizzes: Quiz[];
@@ -14,7 +16,8 @@ interface QuizContextType {
     timeLimit?: number,
     additionalInfo?: string, 
     apiKey?: string,
-    modelType?: 'openai' | 'qwen' | 'gemini' | 'local'
+    modelType?: 'qwen' | 'gemini',
+    progressCallback?: ProgressCallback
   ) => Promise<string>;
   getQuiz: (id: string) => Promise<Quiz | null>;
   submitQuizAnswers: (quizId: string, answers: Record<string, string>) => Promise<number>;
