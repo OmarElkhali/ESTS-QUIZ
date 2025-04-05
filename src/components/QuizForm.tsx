@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -36,12 +35,10 @@ export const QuizForm = () => {
   const [redirectCounter, setRedirectCounter] = useState(5);
   const [createdQuizId, setCreatedQuizId] = useState<string | null>(null);
   
-  // Gestion de progression
   const [progressStage, setProgressStage] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressLogs, setProgressLogs] = useState<string[]>([]);
   
-  // Effet pour la redirection automatique
   useEffect(() => {
     let timer: NodeJS.Timeout;
     
@@ -70,7 +67,6 @@ export const QuizForm = () => {
     setProgressPercent(0);
     setError(null);
     
-    // Si le quiz a été créé mais qu'on annule la redirection
     if (quizCreated && createdQuizId) {
       navigate(`/quiz/${createdQuizId}`);
     }
@@ -130,7 +126,6 @@ export const QuizForm = () => {
       setProgressStage('Terminé');
       setProgressPercent(100);
       
-      // Marquer le quiz comme créé et préparer la redirection
       setQuizCreated(true);
       setCreatedQuizId(quizId);
       setRedirectCounter(5);
@@ -141,7 +136,7 @@ export const QuizForm = () => {
       setError(error.message || "Erreur inconnue lors de la création du quiz");
       addLog(`ERREUR: ${error.message || "Erreur inconnue"}`);
       toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
-      setIsSubmitting(true); // Garder l'interface de soumission visible pour voir les logs d'erreur
+      setIsSubmitting(true);
       setQuizCreated(false);
     }
   };
@@ -198,7 +193,7 @@ export const QuizForm = () => {
           
           {quizCreated && createdQuizId ? (
             <div className="space-y-4">
-              <Alert variant="success" className="bg-green-50 border-green-200">
+              <Alert variant="default" className="bg-green-50 border-green-200">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertTitle className="text-green-800">Quiz créé avec succès</AlertTitle>
                 <AlertDescription className="text-green-700">
