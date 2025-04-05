@@ -47,7 +47,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     timeLimit?: number,
     additionalInfo?: string,
     apiKey?: string,
-    modelType: 'qwen' | 'gemini' | 'local' = 'qwen'
+    modelType: 'qwen' | 'gemini' = 'qwen'
   ): Promise<string> => {
     if (!user) {
       toast.error('Veuillez vous connecter pour créer un quiz');
