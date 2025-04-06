@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,49 +20,28 @@ const QuizPreview = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    const maxRetries = 3;
-    const fetchQuiz = async () => {
-      if (!id) {
-        setError('ID du quiz non spécifié');
-        toast.error('ID du quiz non spécifié');
-        setIsLoading(false);
-        navigate('/');
-        return;
-      }
+  const fetchQuiz = useCallback(async () => {
+    if (!id) {
+      console.error('ID du quiz non spécifié');
+      setError('ID du quiz non spécifié');
+      toast.error('ID du quiz non spécifié');
+      setIsLoading(false);
+      navigate('/');
+      return;
+    }
 
-      try {
-        console.log(`Tentative de récupération du quiz: ${id} (essai ${retryCount + 1}/${maxRetries})`);
-        setIsLoading(true);
-        setError(null);
-        const quizData = await getQuiz(id);
+    try {
+      console.log(`QuizPreview: Tentative de récupération du quiz: ${id} (essai ${retryCount + 1}/3)`);
+      setIsLoading(true);
+      setError(null);
+      
+      const quizData = await getQuiz(id);
+      
+      if (!quizData) {
+        console.error(`QuizPreview: Quiz non trouvé (ID: ${id})`);
         
-        if (!quizData) {
-          if (retryCount < maxRetries - 1) {
-            console.log(`Quiz non trouvé, nouvelle tentative dans 2 secondes...`);
-            setIsRetrying(true);
-            setTimeout(() => {
-              setRetryCount(prev => prev + 1);
-              setIsRetrying(false);
-            }, 2000);
-            return;
-          }
-          
-          setError('Quiz introuvable. Vérifiez l\'URL ou essayez de créer un nouveau quiz.');
-          toast.error('Quiz introuvable');
-          setIsLoading(false);
-          return;
-        }
-        
-        console.log('Quiz récupéré avec succès:', quizData);
-        setQuiz(quizData);
-        setIsLoading(false);
-        setError(null);
-      } catch (error: any) {
-        console.error('Erreur lors du chargement du quiz:', error);
-        
-        if (retryCount < maxRetries - 1) {
-          console.log(`Erreur de chargement, nouvelle tentative dans 2 secondes...`);
+        if (retryCount < 2) {
+          console.log(`QuizPreview: Nouvelle tentative dans 2 secondes...`);
           setIsRetrying(true);
           setTimeout(() => {
             setRetryCount(prev => prev + 1);
@@ -71,22 +50,53 @@ const QuizPreview = () => {
           return;
         }
         
-        setError(`Impossible de charger le quiz: ${error.message || 'Erreur inconnue'}`);
-        toast.error('Impossible de charger le quiz');
+        setError('Quiz introuvable. Vérifiez l\'URL ou essayez de créer un nouveau quiz.');
+        toast.error('Quiz introuvable');
         setIsLoading(false);
+        return;
       }
-    };
+      
+      console.log('QuizPreview: Quiz récupéré avec succès:', quizData);
+      setQuiz(quizData);
+      setIsLoading(false);
+      setError(null);
+    } catch (error: any) {
+      console.error('QuizPreview: Erreur lors du chargement du quiz:', error);
+      
+      if (retryCount < 2) {
+        console.log(`QuizPreview: Erreur de chargement, nouvelle tentative dans 2 secondes...`);
+        setIsRetrying(true);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          setIsRetrying(false);
+        }, 2000);
+        return;
+      }
+      
+      setError(`Impossible de charger le quiz: ${error.message || 'Erreur inconnue'}`);
+      toast.error('Impossible de charger le quiz');
+      setIsLoading(false);
+    }
+  }, [id, getQuiz, navigate, retryCount]);
 
+  useEffect(() => {
     if (!isRetrying) {
       fetchQuiz();
     }
-  }, [id, getQuiz, navigate, retryCount, isRetrying]);
+  }, [fetchQuiz, isRetrying]);
 
   const handleStartQuiz = () => {
     if (id) {
       console.log(`Démarrage du quiz: ${id}`);
       navigate(`/quiz/${id}`);
     }
+  };
+
+  const handleRefresh = () => {
+    setRetryCount(0);
+    setIsRetrying(false);
+    setIsLoading(true);
+    fetchQuiz();
   };
 
   if (isLoading || contextLoading || isRetrying) {
@@ -101,6 +111,11 @@ const QuizPreview = () => {
                 ? `Tentative de récupération du quiz... (${retryCount + 1}/3)` 
                 : 'Chargement du quiz...'}
             </p>
+            {retryCount > 0 && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Le chargement est un peu long. Veuillez patienter...
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -119,6 +134,7 @@ const QuizPreview = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
             <div className="flex justify-center mt-4">
+              <Button onClick={handleRefresh} className="mr-2">Réessayer</Button>
               <Button onClick={() => navigate('/create-quiz')} className="mr-2">Créer un nouveau quiz</Button>
               <Button variant="outline" onClick={() => navigate('/')}>Retour à l'accueil</Button>
             </div>
@@ -135,8 +151,34 @@ const QuizPreview = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-xl font-semibold mb-4">Quiz introuvable</p>
+            <Button onClick={handleRefresh} className="mr-2">Réessayer</Button>
             <Button onClick={() => navigate('/create-quiz')} className="mr-2">Créer un nouveau quiz</Button>
             <Button variant="outline" onClick={() => navigate('/')}>Retour à l'accueil</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Vérifier que les données du quiz sont complètes
+  if (!quiz.questions || !Array.isArray(quiz.questions) || quiz.questions.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Quiz incomplet</AlertTitle>
+              <AlertDescription>
+                Le quiz a été créé mais ne contient pas de questions. Veuillez essayer de créer un nouveau quiz.
+              </AlertDescription>
+            </Alert>
+            <div className="flex justify-center mt-4">
+              <Button onClick={handleRefresh} className="mr-2">Réessayer</Button>
+              <Button onClick={() => navigate('/create-quiz')} className="mr-2">Créer un nouveau quiz</Button>
+              <Button variant="outline" onClick={() => navigate('/')}>Retour à l'accueil</Button>
+            </div>
           </div>
         </div>
       </div>
@@ -179,7 +221,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Nombre de questions</p>
                       <p className="text-sm text-muted-foreground">
-                        {quiz?.questions?.length} questions
+                        {quiz?.questions?.length || 0} questions
                       </p>
                     </div>
                   </div>
@@ -191,7 +233,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Durée estimée</p>
                       <p className="text-sm text-muted-foreground">
-                        {quiz?.duration}
+                        {quiz?.duration || '15 min'}
                       </p>
                     </div>
                   </div>
@@ -205,7 +247,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Description</p>
                       <p className="text-sm text-muted-foreground line-clamp-3">
-                        {quiz?.description}
+                        {quiz?.description || 'Quiz généré par IA basé sur vos documents.'}
                       </p>
                     </div>
                   </div>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -119,11 +120,14 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         const newQuiz = await quizService.getQuiz(quizId);
         
         if (newQuiz) {
+          console.log('Nouveau quiz récupéré avec succès:', newQuiz);
           setQuizzes(prev => [newQuiz, ...prev]);
           setCurrentQuiz(newQuiz);
+        } else {
+          console.warn('Le quiz créé a été récupéré mais est null ou undefined');
         }
       } catch (fetchError) {
-        console.warn('Erreur lors de la récupération du quiz créé:', fetchError);
+        console.error('Erreur lors de la récupération du quiz créé:', fetchError);
         // On continue malgré l'erreur, le quizId est suffisant pour la redirection
       }
       
@@ -147,11 +151,18 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     try {
       const quiz = await quizService.getQuiz(id);
       console.log('Quiz récupéré:', quiz);
+      
+      if (!quiz) {
+        console.error(`Aucun quiz trouvé avec l'ID: ${id}`);
+        toast.error('Quiz introuvable');
+        return null;
+      }
+      
       setCurrentQuiz(quiz);
       return quiz;
-    } catch (error) {
-      console.error('Error getting quiz:', error);
-      toast.error('Impossible de récupérer le quiz');
+    } catch (error: any) {
+      console.error(`Erreur lors de la récupération du quiz ${id}:`, error);
+      toast.error(`Impossible de récupérer le quiz: ${error.message || "Erreur inconnue"}`);
       return null;
     } finally {
       setIsLoading(false);
