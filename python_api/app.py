@@ -6,6 +6,7 @@ import requests
 import logging
 from flask_cors import CORS
 import os
+import time
 
 app = Flask(__name__)
 CORS(app)  # Activer CORS pour toutes les routes
@@ -30,19 +31,49 @@ def generate_questions():
         model_type = data.get('modelType', 'qwen')
         
         logger.info(f"Génération de {num_questions} questions, difficulté: {difficulty}, modèle: {model_type}")
+        logger.info(f"Longueur du texte: {len(text)} caractères")
         
         # Choisir le modèle en fonction du type demandé
         if model_type == 'qwen':
-            return generate_with_qwen(text, num_questions, difficulty, additional_info)
+            try:
+                return generate_with_qwen(text, num_questions, difficulty, additional_info)
+            except Exception as qwen_error:
+                logger.error(f"Erreur avec Qwen, tentative avec Gemini: {qwen_error}")
+                try:
+                    return generate_with_gemini(text, num_questions, difficulty, additional_info)
+                except Exception as gemini_error:
+                    logger.error(f"Erreur avec Gemini également: {gemini_error}")
+                    fallback_questions = generate_fallback_questions(num_questions, difficulty)
+                    return jsonify({
+                        "warning": "Les deux modèles ont échoué, utilisation du mode secours",
+                        "questions": fallback_questions
+                    })
         elif model_type == 'gemini':
-            return generate_with_gemini(text, num_questions, difficulty, additional_info)
+            try:
+                return generate_with_gemini(text, num_questions, difficulty, additional_info)
+            except Exception as gemini_error:
+                logger.error(f"Erreur avec Gemini, tentative avec Qwen: {gemini_error}")
+                try:
+                    return generate_with_qwen(text, num_questions, difficulty, additional_info)
+                except Exception as qwen_error:
+                    logger.error(f"Erreur avec Qwen également: {qwen_error}")
+                    fallback_questions = generate_fallback_questions(num_questions, difficulty)
+                    return jsonify({
+                        "warning": "Les deux modèles ont échoué, utilisation du mode secours",
+                        "questions": fallback_questions
+                    })
         else:
             logger.error(f"Type de modèle non reconnu: {model_type}")
             return jsonify({"error": f"Type de modèle non reconnu: {model_type}"}), 400
         
     except Exception as e:
         logger.error(f"Erreur générale: {e}")
-        return jsonify({"error": str(e)}), 500
+        # Générer des questions de secours en cas d'erreur
+        fallback_questions = generate_fallback_questions(10, "medium")
+        return jsonify({
+            "warning": f"Erreur lors de la génération: {str(e)}. Utilisation du mode secours.",
+            "questions": fallback_questions
+        })
 
 def generate_with_qwen(text, num_questions, difficulty, additional_info):
     """Génère des questions en utilisant le modèle Qwen via OpenRouter"""
@@ -75,8 +106,13 @@ def generate_with_qwen(text, num_questions, difficulty, additional_info):
         "Content-Type": "application/json"
     }
     
+    # Vérifier l'API key OpenRouter
+    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith("sk-or-") is False:
+        logger.error("Clé API OpenRouter invalide ou non fournie")
+        raise ValueError("Clé API OpenRouter invalide ou non fournie")
+    
     payload = {
-        "model": "qwen/qwen-2-5-32b",
+        "model": "qwen/qwen-2-7b-instruct",  # Modèle plus léger et plus fiable
         "messages": [
             {
                 "role": "system", 
@@ -91,6 +127,9 @@ def generate_with_qwen(text, num_questions, difficulty, additional_info):
     }
     
     try:
+        # Ajout d'un délai avant l'appel pour éviter les problèmes de rate limiting
+        time.sleep(1)
+        
         response = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers=headers,
@@ -100,7 +139,10 @@ def generate_with_qwen(text, num_questions, difficulty, additional_info):
         
         if not response.ok:
             logger.error(f"Erreur OpenRouter: {response.status_code} {response.text}")
-            return jsonify({"error": f"Erreur OpenRouter: {response.status_code}"}), 500
+            # Si l'erreur est 401, c'est un problème d'authentification
+            if response.status_code == 401:
+                raise ValueError(f"Erreur d'authentification OpenRouter (401): Clé API invalide ou expirée")
+            raise ValueError(f"Erreur OpenRouter: {response.status_code}")
         
         # Traiter la réponse
         result = response.json()
@@ -108,10 +150,11 @@ def generate_with_qwen(text, num_questions, difficulty, additional_info):
         
         if not content:
             logger.error("Réponse vide depuis OpenRouter")
-            return jsonify({"error": "Réponse vide depuis l'API"}), 500
+            raise ValueError("Réponse vide depuis l'API")
         
         # Traiter la réponse JSON
         try:
+            logger.info(f"Réponse brute de OpenRouter: {content[:100]}...")
             parsed_content = json.loads(content)
             
             # Extraire les questions
@@ -135,16 +178,11 @@ def generate_with_qwen(text, num_questions, difficulty, additional_info):
             
         except json.JSONDecodeError as e:
             logger.error(f"Erreur de décodage JSON: {e}")
-            return jsonify({"error": f"Format de réponse invalide: {e}"}), 500
+            raise ValueError(f"Format de réponse invalide: {e}")
     
     except requests.exceptions.RequestException as e:
         logger.error(f"Erreur de requête OpenRouter: {e}")
-        # Générer des questions de secours
-        fallback_questions = generate_fallback_questions(num_questions, difficulty)
-        return jsonify({
-            "warning": "Erreur lors de l'appel à OpenRouter, utilisation de questions de secours",
-            "questions": fallback_questions
-        })
+        raise e
 
 def generate_with_gemini(text, num_questions, difficulty, additional_info):
     """Génère des questions en utilisant le modèle Gemini de Google"""
@@ -186,9 +224,17 @@ def generate_with_gemini(text, num_questions, difficulty, additional_info):
     ]
     """
     
+    # Vérifier l'API key Gemini
+    if not GEMINI_API_KEY:
+        logger.error("Clé API Gemini non fournie")
+        raise ValueError("Clé API Gemini non fournie")
+    
     # Appel à l'API Gemini
     logger.info("Appel de l'API Gemini...")
     try:
+        # Ajout d'un délai avant l'appel pour éviter les problèmes de rate limiting
+        time.sleep(1)
+        
         response = requests.post(
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
             headers={
@@ -216,7 +262,7 @@ def generate_with_gemini(text, num_questions, difficulty, additional_info):
         
         if not response.ok:
             logger.error(f"Erreur Gemini: {response.status_code} {response.text}")
-            return jsonify({"error": f"Erreur Gemini: {response.status_code}"}), 500
+            raise ValueError(f"Erreur Gemini: {response.status_code}")
         
         # Traiter la réponse
         result = response.json()
@@ -230,26 +276,20 @@ def generate_with_gemini(text, num_questions, difficulty, additional_info):
         
         if not content:
             logger.error("Réponse vide depuis Gemini")
-            return jsonify({"error": "Réponse vide depuis l'API Gemini"}), 500
+            raise ValueError("Réponse vide depuis l'API Gemini")
         
         # Extraire le JSON de la réponse
         try:
+            logger.info(f"Réponse brute de Gemini: {content[:100]}...")
             # Recherche d'un tableau JSON dans la chaîne
-            json_match = content.strip()
-            questions = []
+            import re
+            json_match = re.search(r'\[\s*\{[\s\S]*\}\s*\]', content)
             
-            # Essayer d'extraire le JSON directement
-            try:
-                questions = json.loads(json_match)
-            except json.JSONDecodeError:
-                # Essayer d'extraire un tableau JSON encadré par des caractères
-                import re
-                json_match = re.search(r'\[\s*\{[\s\S]*\}\s*\]', content)
-                if json_match:
-                    questions = json.loads(json_match.group())
-                else:
-                    logger.error("Aucun JSON valide trouvé dans la réponse Gemini")
-                    raise json.JSONDecodeError("No valid JSON found", "", 0)
+            if not json_match:
+                logger.error("Aucun JSON valide trouvé dans la réponse Gemini")
+                raise ValueError("Aucun JSON valide trouvé dans la réponse Gemini")
+                
+            questions = json.loads(json_match.group())
             
             # Validation et formatage des questions
             validated_questions = format_questions(questions, num_questions, difficulty)
@@ -259,16 +299,11 @@ def generate_with_gemini(text, num_questions, difficulty, additional_info):
             
         except json.JSONDecodeError as e:
             logger.error(f"Erreur de décodage JSON: {e}")
-            return jsonify({"error": f"Format de réponse invalide depuis Gemini: {e}"}), 500
+            raise ValueError(f"Format de réponse invalide depuis Gemini: {e}")
     
     except requests.exceptions.RequestException as e:
         logger.error(f"Erreur de requête Gemini: {e}")
-        # Générer des questions de secours
-        fallback_questions = generate_fallback_questions(num_questions, difficulty)
-        return jsonify({
-            "warning": "Erreur lors de l'appel à Gemini, utilisation de questions de secours",
-            "questions": fallback_questions
-        })
+        raise e
 
 def format_questions(questions, num_questions, difficulty):
     """Formate et valide les questions générées par l'IA"""
@@ -377,13 +412,22 @@ def generate_fallback_questions(num_questions, difficulty):
 def health_check():
     """Point de terminaison pour vérifier l'état de l'API"""
     logger.info("Vérification de l'état de l'API Flask")
+    
+    # Vérifier les clés API
+    openrouter_ok = bool(OPENROUTER_API_KEY and OPENROUTER_API_KEY.startswith("sk-or-"))
+    gemini_ok = bool(GEMINI_API_KEY)
+    
     return jsonify({
         "status": "ok", 
         "message": "L'API Python est en ligne",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "services": {
-            "qwen": True,
-            "gemini": True
+            "qwen": openrouter_ok,
+            "gemini": gemini_ok
+        },
+        "api_keys": {
+            "openrouter": "Valide" if openrouter_ok else "Manquante ou invalide",
+            "gemini": "Valide" if gemini_ok else "Manquante"
         }
     })
 
