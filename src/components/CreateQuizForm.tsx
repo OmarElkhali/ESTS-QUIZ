@@ -111,14 +111,19 @@ export const CreateQuizForm = () => {
       console.log('Starting quiz creation process');
       const apiKeyToUse = selectedAI === 'openai' ? apiKey : undefined;
       const actualTimeLimit = enableTimeLimit ? timeLimit : undefined;
+      const modelType = selectedAI === 'openai' ? 'qwen' : 'gemini';
       
+      // Fix: Add the proper number of arguments to match the expected function signature
+      // The createQuiz function expects 8 arguments
       const quizId = await createQuiz(
         file, 
         numQuestions,
         difficulty,
         actualTimeLimit,
         additionalInfo,
-        apiKeyToUse
+        apiKeyToUse,
+        modelType,
+        undefined // progressCallback parameter (optional)
       );
       
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
@@ -340,3 +345,4 @@ export const CreateQuizForm = () => {
     </motion.div>
   );
 };
+

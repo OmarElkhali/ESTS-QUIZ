@@ -36,10 +36,28 @@ export const useQuiz = () => {
         return null;
       }
     },
-    createQuiz: async (file, numQuestions, difficulty, timeLimit, additionalInfo, apiKey, modelType, progressCallback) => {
+    createQuiz: async (
+      file, 
+      numQuestions, 
+      difficulty, 
+      timeLimit, 
+      additionalInfo, 
+      apiKey, 
+      modelType, 
+      progressCallback
+    ) => {
       try {
-        console.log(`useQuiz: Création d'un quiz avec ${numQuestions} questions (${modelType})`);
-        const quizId = await context.createQuiz(file, numQuestions, difficulty, timeLimit, additionalInfo, apiKey, modelType, progressCallback);
+        console.log(`useQuiz: Création d'un quiz avec ${numQuestions} questions (${modelType || 'qwen'})`);
+        const quizId = await context.createQuiz(
+          file, 
+          numQuestions, 
+          difficulty, 
+          timeLimit, 
+          additionalInfo, 
+          apiKey, 
+          modelType, 
+          progressCallback
+        );
         console.log(`useQuiz: Quiz créé avec succès, ID: ${quizId}`);
         return quizId;
       } catch (error) {
