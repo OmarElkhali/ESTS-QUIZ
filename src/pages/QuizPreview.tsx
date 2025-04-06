@@ -54,6 +54,8 @@ const QuizPreview = () => {
         
         console.log('Quiz récupéré avec succès:', quizData);
         setQuiz(quizData);
+        setIsLoading(false);
+        setError(null);
       } catch (error: any) {
         console.error('Erreur lors du chargement du quiz:', error);
         
@@ -69,10 +71,7 @@ const QuizPreview = () => {
         
         setError(`Impossible de charger le quiz: ${error.message || 'Erreur inconnue'}`);
         toast.error('Impossible de charger le quiz');
-      } finally {
-        if (!isRetrying) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
