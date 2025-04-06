@@ -5,6 +5,7 @@ import { Quiz } from '@/types/quiz';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import * as quizService from '@/services/quizService';
+import { generateQuestionsWithAI } from '@/services/aiService';
 
 type ProgressCallback = (stage: string, percent: number, message?: string) => void;
 
@@ -29,13 +30,18 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     setIsLoading(true);
     try {
+      console.log('QuizProvider: Récupération des quiz pour l\'utilisateur', user.id);
       const userQuizzes = await quizService.getQuizzes(user.id);
       setQuizzes(userQuizzes);
       
       const shared = await quizService.getSharedQuizzes(user.id);
       setSharedQuizzes(shared);
+      console.log('QuizProvider: Quiz récupérés avec succès', {
+        userQuizzes: userQuizzes.length,
+        sharedQuizzes: shared.length
+      });
     } catch (error) {
-      console.error('Error fetching quizzes:', error);
+      console.error('QuizProvider: Erreur lors de la récupération des quiz:', error);
       toast.error('Impossible de récupérer vos quiz');
     } finally {
       setIsLoading(false);
@@ -60,7 +66,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      console.log(`Démarrage création de quiz: ${numQuestions} questions (${modelType})`);
+      console.log(`QuizProvider: Démarrage création de quiz: ${numQuestions} questions (${modelType})`);
       progressCallback?.('Initialisation', 5, `Création de quiz: ${numQuestions} questions, difficulté: ${difficulty}, modèle: ${modelType}`);
       
       // 1. Télécharger le fichier
@@ -77,9 +83,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Impossible d'extraire suffisamment de texte du document");
       }
       
-      // 3. Générer les questions
+      // 3. Générer les questions via l'API Flask
       progressCallback?.('Génération des questions', 45, `Génération de ${numQuestions} questions avec ${modelType}...`);
-      const questions = await quizService.generateQuizQuestions(
+      const questions = await generateQuestionsWithAI(
         text,
         numQuestions,
         difficulty,
@@ -120,24 +126,24 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         const newQuiz = await quizService.getQuiz(quizId);
         
         if (newQuiz) {
-          console.log('Nouveau quiz récupéré avec succès:', newQuiz);
+          console.log('QuizProvider: Nouveau quiz récupéré avec succès:', newQuiz);
           setQuizzes(prev => [newQuiz, ...prev]);
           setCurrentQuiz(newQuiz);
         } else {
-          console.warn('Le quiz créé a été récupéré mais est null ou undefined');
+          console.warn('QuizProvider: Le quiz créé a été récupéré mais est null ou undefined');
         }
       } catch (fetchError) {
-        console.error('Erreur lors de la récupération du quiz créé:', fetchError);
+        console.error('QuizProvider: Erreur lors de la récupération du quiz créé:', fetchError);
         // On continue malgré l'erreur, le quizId est suffisant pour la redirection
       }
       
       progressCallback?.('Terminé', 100, 'Quiz créé avec succès');
-      console.log(`Quiz créé avec succès, ID: ${quizId}`);
+      console.log(`QuizProvider: Quiz créé avec succès, ID: ${quizId}`);
       toast.success('Quiz créé avec succès');
       
       return quizId;
     } catch (error: any) {
-      console.error('Error creating quiz:', error);
+      console.error('QuizProvider: Error creating quiz:', error);
       toast.error(`Impossible de créer le quiz: ${error.message || "Erreur inconnue"}`);
       throw error;
     } finally {
@@ -146,14 +152,14 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const getQuiz = async (id: string) => {
-    console.log(`Récupération du quiz avec ID: ${id}`);
+    console.log(`QuizProvider: Récupération du quiz avec ID: ${id}`);
     setIsLoading(true);
     try {
       const quiz = await quizService.getQuiz(id);
-      console.log('Quiz récupéré:', quiz);
+      console.log('QuizProvider: Quiz récupéré:', quiz);
       
       if (!quiz) {
-        console.error(`Aucun quiz trouvé avec l'ID: ${id}`);
+        console.error(`QuizProvider: Aucun quiz trouvé avec l'ID: ${id}`);
         toast.error('Quiz introuvable');
         return null;
       }
@@ -161,7 +167,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       setCurrentQuiz(quiz);
       return quiz;
     } catch (error: any) {
-      console.error(`Erreur lors de la récupération du quiz ${id}:`, error);
+      console.error(`QuizProvider: Erreur lors de la récupération du quiz ${id}:`, error);
       toast.error(`Impossible de récupérer le quiz: ${error.message || "Erreur inconnue"}`);
       return null;
     } finally {

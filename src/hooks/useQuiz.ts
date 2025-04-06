@@ -12,19 +12,40 @@ export const useQuiz = () => {
     throw new Error('useQuiz must be used within a QuizProvider');
   }
   
-  // Proxy the functions to add additional error handling
+  // Proxy les fonctions pour ajouter une gestion d'erreur supplémentaire
   const enhancedContext = {
     ...context,
     getQuiz: async (id: string) => {
       try {
         console.log(`useQuiz: Récupération du quiz ${id}`);
         const result = await context.getQuiz(id);
-        console.log(`useQuiz: Résultat de la récupération:`, result ? 'Quiz trouvé' : 'Quiz non trouvé');
+        
+        if (result) {
+          console.log(`useQuiz: Quiz ${id} récupéré avec succès:`, {
+            title: result.title,
+            questionsCount: result.questions?.length || 0
+          });
+        } else {
+          console.error(`useQuiz: Quiz ${id} non trouvé`);
+        }
+        
         return result;
       } catch (error) {
         console.error(`useQuiz: Erreur lors de la récupération du quiz ${id}:`, error);
         toast.error('Erreur lors de la récupération du quiz');
         return null;
+      }
+    },
+    createQuiz: async (file, numQuestions, difficulty, timeLimit, additionalInfo, apiKey, modelType, progressCallback) => {
+      try {
+        console.log(`useQuiz: Création d'un quiz avec ${numQuestions} questions (${modelType})`);
+        const quizId = await context.createQuiz(file, numQuestions, difficulty, timeLimit, additionalInfo, apiKey, modelType, progressCallback);
+        console.log(`useQuiz: Quiz créé avec succès, ID: ${quizId}`);
+        return quizId;
+      } catch (error) {
+        console.error('useQuiz: Erreur lors de la création du quiz:', error);
+        toast.error('Erreur lors de la création du quiz');
+        throw error;
       }
     }
   };
