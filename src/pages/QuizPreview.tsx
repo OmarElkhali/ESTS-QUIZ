@@ -26,6 +26,7 @@ const QuizPreview = () => {
       if (!id) {
         setError('ID du quiz non spécifié');
         toast.error('ID du quiz non spécifié');
+        setIsLoading(false);
         navigate('/');
         return;
       }
@@ -49,6 +50,7 @@ const QuizPreview = () => {
           
           setError('Quiz introuvable. Vérifiez l\'URL ou essayez de créer un nouveau quiz.');
           toast.error('Quiz introuvable');
+          setIsLoading(false);
           return;
         }
         
@@ -164,7 +166,7 @@ const QuizPreview = () => {
           
           <Card className="glass-card border border-[#D2691E]/20 overflow-hidden">
             <CardHeader className="pb-0">
-              <CardTitle className="text-2xl">{quiz.title}</CardTitle>
+              <CardTitle className="text-2xl">{quiz?.title}</CardTitle>
             </CardHeader>
             
             <CardContent className="pt-6 pb-0">
@@ -177,7 +179,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Nombre de questions</p>
                       <p className="text-sm text-muted-foreground">
-                        {quiz.questions.length} questions
+                        {quiz?.questions?.length} questions
                       </p>
                     </div>
                   </div>
@@ -189,7 +191,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Durée estimée</p>
                       <p className="text-sm text-muted-foreground">
-                        {quiz.duration}
+                        {quiz?.duration}
                       </p>
                     </div>
                   </div>
@@ -203,7 +205,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Description</p>
                       <p className="text-sm text-muted-foreground line-clamp-3">
-                        {quiz.description}
+                        {quiz?.description}
                       </p>
                     </div>
                   </div>
@@ -215,7 +217,7 @@ const QuizPreview = () => {
                     <div>
                       <p className="font-medium mb-1">Créé le</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(quiz.createdAt).toLocaleDateString()}
+                        {quiz?.createdAt && new Date(quiz.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>

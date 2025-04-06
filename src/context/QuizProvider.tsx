@@ -1,4 +1,3 @@
-
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -142,7 +141,6 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Fonctions simplifiées pour le contexte
   const getQuiz = async (id: string) => {
     console.log(`Récupération du quiz avec ID: ${id}`);
     setIsLoading(true);
