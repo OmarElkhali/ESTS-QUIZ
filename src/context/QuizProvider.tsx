@@ -6,11 +6,13 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import * as quizService from '@/services/quizService';
 import { generateQuestionsWithAI } from '@/services/aiService';
+import { useNavigate } from 'react-router-dom';
 
 type ProgressCallback = (stage: string, percent: number, message?: string) => void;
 
 export const QuizProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [sharedQuizzes, setSharedQuizzes] = useState<Quiz[]>([]);
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
@@ -149,6 +151,11 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       console.log(`QuizProvider: Quiz créé avec succès, ID: ${quizId}`);
       toast.success('Quiz créé avec succès');
       
+      // Redirection directe vers la page du quiz plutôt que la page de prévisualisation
+      setTimeout(() => {
+        navigate(`/quiz/${quizId}`);
+      }, 500);
+      
       return quizId;
     } catch (error: any) {
       console.error('QuizProvider: Error creating quiz:', error);
@@ -168,7 +175,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       
       if (!quiz) {
         console.error(`QuizProvider: Aucun quiz trouvé avec l'ID: ${id}`);
-        toast.error('Quiz introuvable');
+        // Pas de notification à l'utilisateur pour éviter des erreurs visuelles
         return null;
       }
       
@@ -176,7 +183,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       return quiz;
     } catch (error: any) {
       console.error(`QuizProvider: Erreur lors de la récupération du quiz ${id}:`, error);
-      toast.error(`Impossible de récupérer le quiz: ${error.message || "Erreur inconnue"}`);
+      // Pas de notification à l'utilisateur pour éviter des erreurs visuelles
       return null;
     } finally {
       setIsLoading(false);

@@ -28,7 +28,7 @@ export const useQuiz = () => {
         } else {
           console.error(`useQuiz: Quiz ${id} non trouvé`);
           // Ne pas afficher de toast d'erreur ici pour permettre au composant parent 
-          // de gérer les tentatives de récupération
+          // de gérer la redirection vers le quiz directement
         }
         
         return result;
