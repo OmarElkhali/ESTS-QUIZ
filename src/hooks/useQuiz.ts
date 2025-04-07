@@ -62,8 +62,8 @@ export const useQuiz = () => {
         return quizId;
       } catch (error) {
         console.error('useQuiz: Erreur lors de la création du quiz:', error);
-        toast.error('Erreur lors de la création du quiz');
-        throw error;
+        // Aucune notification à l'utilisateur en cas d'échec, nous utilisons la solution de secours
+        throw error; // Remonter l'erreur pour permettre au service AI de gérer la solution de secours
       }
     }
   };

@@ -90,13 +90,13 @@ export const CreateQuizForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file) {
-      toast.error("Veuillez sélectionner un fichier");
+    if (!user) {
+      toast.error("Veuillez vous connecter pour créer un quiz");
       return;
     }
     
-    if (!user) {
-      toast.error("Veuillez vous connecter pour créer un quiz");
+    if (!file) {
+      toast.error("Veuillez sélectionner un fichier");
       return;
     }
     
@@ -113,8 +113,11 @@ export const CreateQuizForm = () => {
       const actualTimeLimit = enableTimeLimit ? timeLimit : undefined;
       const modelType = selectedAI === 'openai' ? 'qwen' : 'gemini';
       
-      // Fix: Add the proper number of arguments to match the expected function signature
-      // The createQuiz function expects 8 arguments
+      // Définir une fonction de callback pour suivre la progression
+      const progressCallback = (stage: string, percent: number, message?: string) => {
+        console.log(`[CreateQuizForm] Progress: ${stage} - ${percent}% - ${message || ''}`);
+      };
+      
       const quizId = await createQuiz(
         file, 
         numQuestions,
@@ -123,7 +126,7 @@ export const CreateQuizForm = () => {
         additionalInfo,
         apiKeyToUse,
         modelType,
-        undefined // progressCallback parameter (optional)
+        progressCallback
       );
       
       toast.success(`${numQuestions} questions générées à partir de vos documents!`);
@@ -345,4 +348,3 @@ export const CreateQuizForm = () => {
     </motion.div>
   );
 };
-

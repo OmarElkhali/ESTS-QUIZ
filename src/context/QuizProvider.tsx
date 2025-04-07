@@ -83,19 +83,27 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Impossible d'extraire suffisamment de texte du document");
       }
       
-      // 3. Générer les questions via l'API Flask
+      // 3. Générer les questions via l'API Flask ou utiliser la solution de secours si nécessaire
+      // Aucune notification d'erreur ne sera affichée, le basculement est silencieux
       progressCallback?.('Génération des questions', 45, `Génération de ${numQuestions} questions avec ${modelType}...`);
-      const questions = await generateQuestionsWithAI(
-        text,
-        numQuestions,
-        difficulty,
-        additionalInfo,
-        modelType,
-        (progress: number) => {
-          const percent = 45 + Math.round(progress * 30);
-          progressCallback?.('Génération des questions', percent, `Progression: ${Math.round(progress * 100)}%`);
-        }
-      );
+      let questions;
+      try {
+        questions = await generateQuestionsWithAI(
+          text,
+          numQuestions,
+          difficulty,
+          additionalInfo,
+          modelType,
+          (progress: number) => {
+            const percent = 45 + Math.round(progress * 30);
+            progressCallback?.('Génération des questions', percent, `Progression: ${Math.round(progress * 100)}%`);
+          }
+        );
+      } catch (genError) {
+        // En cas d'erreur, aucune notification à l'utilisateur
+        console.error("Erreur silencieuse lors de la génération des questions:", genError);
+        throw genError; // Le fallback est géré dans le service AI
+      }
       
       if (!questions || questions.length === 0) {
         throw new Error("Impossible de générer des questions");
