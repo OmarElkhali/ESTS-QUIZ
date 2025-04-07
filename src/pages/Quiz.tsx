@@ -10,9 +10,11 @@ import { Progress } from '@/components/ui/progress';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Clock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { getFirebaseBackupQuestions } from '@/services/aiService';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,13 +27,38 @@ const Quiz = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadRetries, setLoadRetries] = useState(0);
+  const [isLoadingBackup, setIsLoadingBackup] = useState(false);
   
   useEffect(() => {
     if (!id) return;
     
     const fetchQuiz = async () => {
       try {
+        setError(null);
+        setIsLoadingBackup(false);
+        
         const quizData = await getQuiz(id);
+        
+        if (!quizData) {
+          throw new Error("Quiz non trouvé");
+        }
+        
+        // Vérifier si le quiz a des questions
+        if (!quizData.questions || quizData.questions.length === 0) {
+          console.warn("Quiz sans questions, création d'un quiz de secours");
+          setIsLoadingBackup(true);
+          
+          // Créer un quiz de secours
+          const backupQuestions = await getFirebaseBackupQuestions();
+          quizData.questions = backupQuestions;
+          quizData.title = quizData.title || "Quiz de secours";
+          quizData.description = "Quiz généré automatiquement - Mode de secours";
+          
+          setIsLoadingBackup(false);
+        }
+        
         setQuiz(quizData);
         
         // Initialize timeLeft if quiz has a time limit
@@ -49,12 +76,52 @@ const Quiz = () => {
         }
       } catch (error) {
         console.error('Error fetching quiz:', error);
-        toast.error('Impossible de charger le quiz');
+        setError("Impossible de charger le quiz. Chargement du quiz de secours...");
+        
+        // Si l'erreur persiste après plusieurs tentatives, créer un quiz de secours
+        if (loadRetries >= 1) {
+          setIsLoadingBackup(true);
+          try {
+            // Créer un quiz de secours avec des questions par défaut
+            const backupQuestions = await getFirebaseBackupQuestions();
+            const backupQuiz = {
+              id: id,
+              title: "Quiz de secours",
+              description: "Quiz généré automatiquement suite à une erreur",
+              questions: backupQuestions,
+              createdAt: new Date().toISOString().split('T')[0],
+              timeLimit: 30,
+              difficulty: "medium"
+            };
+            
+            setQuiz(backupQuiz);
+            
+            // Initialiser les réponses vides
+            const initialAnswers: Record<string, string> = {};
+            backupQuestions.forEach((q: any) => {
+              initialAnswers[q.id] = '';
+            });
+            setAnswers(initialAnswers);
+            
+            // Initialiser le temps restant
+            setTimeLeft(30 * 60); // 30 minutes
+            
+            setError(null);
+          } catch (backupError) {
+            console.error('Error creating backup quiz:', backupError);
+            setError("Impossible de charger le quiz de secours. Veuillez réessayer.");
+          } finally {
+            setIsLoadingBackup(false);
+          }
+        } else {
+          // Incrémenter le compteur de tentatives et réessayer
+          setLoadRetries(prev => prev + 1);
+        }
       }
     };
     
     fetchQuiz();
-  }, [id, getQuiz]);
+  }, [id, getQuiz, loadRetries]);
   
   // Timer countdown effect
   useEffect(() => {
@@ -79,12 +146,32 @@ const Quiz = () => {
     return <Navigate to="/" />;
   }
   
-  if (isLoading || !quiz) {
+  if (isLoading || isLoadingBackup || !quiz) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground">
+              {isLoadingBackup ? "Chargement du quiz de secours..." : "Chargement du quiz..."}
+            </p>
+            
+            {error && (
+              <Alert variant="destructive" className="mt-4 max-w-md mx-auto">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Erreur</AlertTitle>
+                <AlertDescription>
+                  {error}
+                  <div className="mt-2">
+                    <Button size="sm" variant="outline" onClick={() => setLoadRetries(prev => prev + 1)}>
+                      Réessayer
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
         </div>
       </div>
     );

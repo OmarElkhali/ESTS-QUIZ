@@ -1,15 +1,13 @@
-
 import axios from 'axios';
 import { Question } from '@/types/quiz';
-import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
 // URL de l'API Flask (local)
 const FLASK_API_URL = 'http://localhost:5000/api';
 
-// Questions de secours Firebase
-const getFirebaseBackupQuestions = async (): Promise<Question[]> => {
+// Exporter la fonction pour pouvoir l'utiliser directement
+export const getFirebaseBackupQuestions = async (): Promise<Question[]> => {
   try {
     // Essayer de récupérer les questions depuis Firestore
     const questionsCollection = collection(db, 'backup-questions');
