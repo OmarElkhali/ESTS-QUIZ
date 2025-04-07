@@ -7,7 +7,7 @@ const QuizPreview = () => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Redirection immédiate vers la page de quiz
+    // Redirection immédiate vers la page de quiz sans aucun délai
     if (id) {
       console.log(`QuizPreview: Redirection immédiate vers le quiz ${id}`);
       navigate(`/quiz/${id}`, { replace: true });
@@ -17,7 +17,7 @@ const QuizPreview = () => {
     }
   }, [id, navigate]);
   
-  // Cette page ne devrait jamais s'afficher car la redirection est immédiate
+  // Cette page ne s'affiche jamais
   return null;
 };
 
