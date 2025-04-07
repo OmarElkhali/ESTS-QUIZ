@@ -27,12 +27,14 @@ export const useQuiz = () => {
           });
         } else {
           console.error(`useQuiz: Quiz ${id} non trouvé`);
+          // Ne pas afficher de toast d'erreur ici pour permettre au composant parent 
+          // de gérer les tentatives de récupération
         }
         
         return result;
       } catch (error) {
         console.error(`useQuiz: Erreur lors de la récupération du quiz ${id}:`, error);
-        toast.error('Erreur lors de la récupération du quiz');
+        // Ne pas afficher de toast d'erreur ici non plus
         return null;
       }
     },

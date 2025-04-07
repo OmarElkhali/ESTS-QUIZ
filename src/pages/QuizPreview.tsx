@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,7 @@ const QuizPreview = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [retryTimer, setRetryTimer] = useState(2);
+  const [redirecting, setRedirecting] = useState(false);
 
   const fetchQuiz = useCallback(async () => {
     if (!id) {
@@ -60,9 +60,12 @@ const QuizPreview = () => {
           return;
         }
         
-        setError('Quiz introuvable. Vérifiez l\'URL ou essayez de créer un nouveau quiz.');
-        toast.error('Quiz introuvable');
-        setIsLoading(false);
+        // Si toutes les tentatives ont échoué, passer directement au quiz
+        console.log('QuizPreview: Tentatives épuisées, redirection directe vers le quiz');
+        setRedirecting(true);
+        setTimeout(() => {
+          navigate(`/quiz/${id}`);
+        }, 2000);
         return;
       }
       
@@ -74,8 +77,12 @@ const QuizPreview = () => {
       // Vérification que les données du quiz sont valides
       if (!quizData.questions || quizData.questions.length === 0) {
         console.error('QuizPreview: Le quiz ne contient pas de questions:', quizData);
-        setError('Le quiz ne contient pas de questions. Veuillez créer un nouveau quiz.');
-        setIsLoading(false);
+        // Si le quiz existe mais n'a pas de questions, rediriger directement vers le quiz
+        // pour que le mécanisme de secours soit utilisé
+        setRedirecting(true);
+        setTimeout(() => {
+          navigate(`/quiz/${id}`);
+        }, 2000);
         return;
       }
       
@@ -105,9 +112,12 @@ const QuizPreview = () => {
         return;
       }
       
-      setError(`Impossible de charger le quiz: ${error.message || 'Erreur inconnue'}`);
-      toast.error('Impossible de charger le quiz');
-      setIsLoading(false);
+      // Si toutes les tentatives ont échoué, passer directement au quiz
+      console.log('QuizPreview: Tentatives épuisées après erreur, redirection directe vers le quiz');
+      setRedirecting(true);
+      setTimeout(() => {
+        navigate(`/quiz/${id}`);
+      }, 2000);
     }
   }, [id, getQuiz, navigate, retryCount, retryTimer]);
 
@@ -131,6 +141,22 @@ const QuizPreview = () => {
     setIsLoading(true);
     fetchQuiz();
   };
+
+  if (redirecting) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">
+              Redirection vers le quiz en mode secours...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || contextLoading || isRetrying) {
     return (
@@ -215,8 +241,7 @@ const QuizPreview = () => {
     );
   }
 
-  // Vérifier que les données du quiz sont complètes
-  if (!quiz.questions || !Array.isArray(quiz.questions) || quiz.questions.length === 0) {
+  if (!quiz?.questions || !Array.isArray(quiz.questions) || quiz.questions.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
