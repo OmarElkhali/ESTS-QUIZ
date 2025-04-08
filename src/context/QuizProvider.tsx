@@ -1,3 +1,4 @@
+
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -178,7 +179,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const getQuiz = async (id: string) => {
+  const getQuiz = async (id: string): Promise<Quiz | null> => {
     console.log(`QuizProvider: Récupération du quiz avec ID: ${id}`);
     
     try {
@@ -204,7 +205,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         console.log('QuizProvider: Quiz non trouvé, création d\'un quiz de secours');
         
         const backupQuestions = await getFirebaseBackupQuestions();
-        const backupQuiz = {
+        const backupQuiz: Quiz = {
           id,
           title: "Quiz",
           description: "Quiz généré automatiquement",
@@ -213,7 +214,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           completionRate: 0,
           duration: "30 min",
           participants: 0,
-          difficulty: "medium",
+          difficulty: "medium", // Using a valid union type value
           timeLimit: 30
         };
         
@@ -225,7 +226,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       
       // En cas d'erreur, créer un quiz de secours
       const backupQuestions = await getFirebaseBackupQuestions();
-      const backupQuiz = {
+      const backupQuiz: Quiz = {
         id,
         title: "Quiz",
         description: "Quiz généré automatiquement",
@@ -234,7 +235,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         completionRate: 0,
         duration: "30 min",
         participants: 0,
-        difficulty: "medium",
+        difficulty: "medium", // Using a valid union type value
         timeLimit: 30
       };
       

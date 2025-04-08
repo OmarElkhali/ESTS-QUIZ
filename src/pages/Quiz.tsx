@@ -14,6 +14,7 @@ import { ArrowLeft, ArrowRight, Check, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { getFirebaseBackupQuestions } from '@/services/aiService';
+import { Quiz as QuizType } from '@/types/quiz';
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +22,7 @@ const Quiz = () => {
   const { submitQuizAnswers } = useQuiz();
   const { user } = useAuth();
   
-  const [quiz, setQuiz] = useState<any>(null);
+  const [quiz, setQuiz] = useState<QuizType | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -41,7 +42,7 @@ const Quiz = () => {
         const backupQuestions = await getFirebaseBackupQuestions();
         
         // Créer un quiz de secours avec ces questions
-        const backupQuiz = {
+        const backupQuiz: QuizType = {
           id,
           title: "Quiz",
           description: "Quiz généré automatiquement",
@@ -50,7 +51,7 @@ const Quiz = () => {
           completionRate: 0,
           duration: "30 min",
           participants: 0,
-          difficulty: "medium",
+          difficulty: "medium", // Using a valid union type value
           timeLimit: 30
         };
         
