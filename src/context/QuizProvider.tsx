@@ -1,4 +1,3 @@
-
 import { useState, useEffect, ReactNode } from 'react';
 import QuizContext from './QuizContext';
 import { Quiz } from '@/types/quiz';
@@ -134,9 +133,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         
         toast.success('Quiz créé avec succès');
         
-        // Redirection directe vers la page du quiz sans passer par la prévisualisation
+        // Redirection vers la page de prévisualisation au lieu du quiz directement
         setTimeout(() => {
-          navigate(`/quiz/${quizId}`);
+          navigate(`/quiz-preview/${quizId}`);
         }, 500);
         
         return quizId;
@@ -163,9 +162,9 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         
         toast.success('Quiz de secours créé avec succès');
         
-        // Redirection directe vers la page du quiz
+        // Redirection vers la page de prévisualisation au lieu du quiz directement
         setTimeout(() => {
-          navigate(`/quiz/${quizId}`);
+          navigate(`/quiz-preview/${quizId}`);
         }, 500);
         
         return quizId;

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -44,12 +43,12 @@ export const QuizForm = () => {
     let timer: NodeJS.Timeout;
     
     if (quizCreated && createdQuizId && redirectCounter > 0) {
-      console.log(`Redirection dans ${redirectCounter} secondes vers /quiz/${createdQuizId}`);
+      console.log(`Redirection dans ${redirectCounter} secondes vers /quiz-preview/${createdQuizId}`);
       timer = setTimeout(() => {
         setRedirectCounter(prev => prev - 1);
       }, 1000);
     } else if (quizCreated && createdQuizId && redirectCounter === 0) {
-      console.log(`Redirection immédiate vers /quiz/${createdQuizId}`);
+      console.log(`Redirection vers la page de prévisualisation: /quiz-preview/${createdQuizId}`);
       navigate(`/quiz-preview/${createdQuizId}`);
     }
     
