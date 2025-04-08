@@ -86,12 +86,17 @@ export const QuizForm = () => {
     e.preventDefault();
     
     if (!user) {
-      toast.error('Veuillez vous connecter pour créer un quiz');
+      toast.error("Veuillez vous connecter pour créer un quiz");
       return;
     }
     
     if (!file) {
-      toast.error('Veuillez télécharger un fichier de cours');
+      toast.error("Veuillez télécharger un fichier");
+      return;
+    }
+    
+    if (file.name.length < 2) {
+      toast.error("Le nom du fichier est trop court");
       return;
     }
     
@@ -120,6 +125,17 @@ export const QuizForm = () => {
         if (message) addLog(message);
       };
       
+      console.log("Paramètres de génération:", {
+        fileType: file.type,
+        fileName: file.name,
+        fileSize: file.size,
+        numQuestions,
+        difficulty,
+        modelType,
+        enableTimeLimit,
+        timeLimit: enableTimeLimit ? timeLimit : undefined
+      });
+      
       const quizId = await createQuiz(
         file, 
         numQuestions, 
@@ -140,7 +156,7 @@ export const QuizForm = () => {
       setCreatedQuizId(quizId);
       setRedirectCounter(5);
       
-      toast.success(`${numQuestions} questions générées à partir de vos documents!`);
+      toast.success(`Quiz créé avec succès! Redirection vers l'aperçu...`);
     } catch (error: any) {
       console.error("Erreur lors de la création du quiz:", error);
       setError(error.message || "Erreur inconnue lors de la création du quiz");

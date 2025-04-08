@@ -6,8 +6,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { useQuiz } from '@/hooks/useQuiz';
 import { Navbar } from '@/components/Navbar';
 import { motion } from 'framer-motion';
-import { ArrowRight, Clock, FileText, HelpCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, Clock, FileText, HelpCircle, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const QuizPreview = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,8 @@ const QuizPreview = () => {
   
   const [quiz, setQuiz] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasFallbackQuestions, setHasFallbackQuestions] = useState(false);
   
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -26,16 +29,29 @@ const QuizPreview = () => {
       }
 
       try {
+        console.log("Chargement du quiz avec ID:", id);
         const quizData = await getQuiz(id);
+        
         if (!quizData) {
           toast.error("Quiz introuvable");
           navigate('/');
           return;
         }
         
+        // Vérifier si les questions sont des questions de secours
+        const hasBackupQuestions = quizData.questions?.some(q => 
+          q.text.includes('(générée') || 
+          q.text.includes('mode secours') ||
+          q.text.includes('générée automatiquement') ||
+          q.explanation?.includes('secours')
+        );
+        
+        setHasFallbackQuestions(hasBackupQuestions);
         setQuiz(quizData);
-      } catch (error) {
+        console.log("Quiz chargé avec succès:", quizData);
+      } catch (error: any) {
         console.error('Erreur lors du chargement du quiz:', error);
+        setError(error.message || "Erreur inconnue");
         toast.error("Impossible de charger le quiz");
       } finally {
         setIsLoading(false);
@@ -96,6 +112,25 @@ const QuizPreview = () => {
             </p>
           </motion.div>
           
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erreur de chargement</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          {hasFallbackQuestions && (
+            <Alert variant="warning" className="mb-6 bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800">Mode de secours activé</AlertTitle>
+              <AlertDescription className="text-amber-700">
+                Nous avons utilisé des questions de secours car l'IA n'a pas pu générer des questions personnalisées. 
+                Vous pouvez toujours utiliser ce quiz ou retourner pour en créer un nouveau.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Card className="border border-[#D2691E]/20 mb-12 overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-[#D2691E]/10 to-[#D2691E]/5 p-8">
               <CardTitle className="text-2xl">{quiz.title}</CardTitle>
@@ -135,6 +170,18 @@ const QuizPreview = () => {
                   <li>Soumettez vos réponses à la fin pour voir votre score</li>
                 </ul>
               </div>
+              
+              {quiz.questions && quiz.questions.length > 0 && (
+                <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="text-green-800 font-medium mb-2 flex items-center">
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Quiz prêt à être utilisé
+                  </h3>
+                  <p className="text-green-700">
+                    Votre quiz contient {quiz.questions.length} questions et peut être démarré à tout moment.
+                  </p>
+                </div>
+              )}
             </CardContent>
             
             <CardFooter className="p-6 bg-muted/20 flex flex-col sm:flex-row gap-4 justify-center">

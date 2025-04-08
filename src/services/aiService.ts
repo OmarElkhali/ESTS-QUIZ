@@ -165,6 +165,8 @@ export const generateQuestionsWithAI = async (
 ): Promise<Question[]> => {
   try {
     console.log(`Génération de ${numQuestions} questions avec ${modelType} via Flask API...`);
+    console.log(`Texte: ${text.substring(0, 100)}... (${text.length} caractères)`);
+    console.log(`Infos supplémentaires: ${additionalInfo || 'aucune'}`);
     progressCallback?.(0.1);
     
     // Vérification de l'état du serveur Flask
@@ -173,12 +175,19 @@ export const generateQuestionsWithAI = async (
       console.log('Vérification de l\'état du serveur Flask...');
       const healthCheck = await axios.get(`${FLASK_API_URL}/health`, { timeout: 5000 });
       console.log('Statut du serveur Flask:', healthCheck.data);
-    } catch (healthError) {
+    } catch (healthError: any) {
       console.error('Le serveur Flask est inaccessible:', healthError);
+      console.log('Détails de l\'erreur:', {
+        message: healthError.message,
+        code: healthError.code,
+        status: healthError.response?.status,
+        data: healthError.response?.data
+      });
       console.log('Utilisation automatique du mode de secours Firebase sans notification...');
       
       // Récupération silencieuse des questions de secours depuis Firebase
       const firebaseQuestions = await getFirebaseBackupQuestions();
+      console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase`);
       
       // Limiter au nombre de questions demandé et ajuster la difficulté
       const adjustedQuestions = firebaseQuestions
@@ -227,12 +236,19 @@ export const generateQuestionsWithAI = async (
         console.error('Format de réponse incorrect depuis l\'API Flask:', response.data);
         throw new Error('Format de réponse incorrect depuis l\'API Flask');
       }
-    } catch (apiError) {
+    } catch (apiError: any) {
       console.error('Erreur lors de l\'appel à l\'API Flask:', apiError);
+      console.log('Détails de l\'erreur API Flask:', {
+        message: apiError.message,
+        code: apiError.code,
+        status: apiError.response?.status,
+        data: apiError.response?.data
+      });
       
       // En cas d'erreur d'API Flask, basculer silencieusement vers le mode de secours Firebase
       console.log('Basculement silencieux vers le mode de secours Firebase...');
       const firebaseQuestions = await getFirebaseBackupQuestions();
+      console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase suite à une erreur API`);
       
       // Limiter au nombre de questions demandé et ajuster la difficulté
       const adjustedQuestions = firebaseQuestions
@@ -243,10 +259,15 @@ export const generateQuestionsWithAI = async (
     }
   } catch (error: any) {
     console.error('Erreur générale lors de la génération des questions:', error);
+    console.log('Détails de l\'erreur générale:', {
+      message: error.message,
+      stack: error.stack
+    });
     
     // En cas d'erreur générale, basculer silencieusement vers le mode de secours Firebase
     console.log('Basculement silencieux vers le mode de secours Firebase suite à une erreur générale...');
     const firebaseQuestions = await getFirebaseBackupQuestions();
+    console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase suite à une erreur générale`);
     
     // Limiter au nombre de questions demandé et ajuster la difficulté
     const adjustedQuestions = firebaseQuestions
