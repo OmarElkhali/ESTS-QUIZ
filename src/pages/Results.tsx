@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,9 @@ const Results = () => {
   const [quiz, setQuiz] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const score = location.state?.score ?? 0;
+  // S'assurer que le score est un nombre valide
+  const rawScore = location.state?.score;
+  const score = typeof rawScore === 'number' && !isNaN(rawScore) ? rawScore : 0;
   const userAnswers = location.state?.answers ?? {};
 
   useEffect(() => {
@@ -76,25 +79,45 @@ const Results = () => {
     );
   }
 
+  // Recalculer le score si nécessaire
+  let calculatedScore = score;
+  
+  if (isNaN(calculatedScore) || calculatedScore === 0) {
+    // Si le score n'est pas disponible dans l'état, le calculer à partir des réponses
+    if (quiz.questions && quiz.questions.length > 0 && Object.keys(userAnswers).length > 0) {
+      let correctAnswers = 0;
+      quiz.questions.forEach((question: any) => {
+        const userAnswerId = userAnswers[question.id];
+        const correctOption = question.options.find((opt: any) => opt.isCorrect);
+        if (userAnswerId && correctOption && userAnswerId === correctOption.id) {
+          correctAnswers++;
+        }
+      });
+      calculatedScore = Math.round((correctAnswers / quiz.questions.length) * 100);
+    } else {
+      calculatedScore = 0; // Score par défaut si aucune donnée disponible
+    }
+  }
+
   let scoreText = "Besoin d'amélioration";
   let scoreColor = "text-red-500";
   
-  if (score >= 80) {
+  if (calculatedScore >= 80) {
     scoreText = "Excellent !";
     scoreColor = "text-green-500";
-  } else if (score >= 60) {
+  } else if (calculatedScore >= 60) {
     scoreText = "Bon travail";
     scoreColor = "text-yellow-500";
-  } else if (score >= 40) {
+  } else if (calculatedScore >= 40) {
     scoreText = "Moyen";
     scoreColor = "text-orange-500";
   }
 
   const progressBarClass = cn(
     "h-3 mt-6",
-    score >= 80 ? "bg-green-500" : 
-    score >= 60 ? "bg-yellow-500" : 
-    score >= 40 ? "bg-orange-500" : 
+    calculatedScore >= 80 ? "bg-green-500" : 
+    calculatedScore >= 60 ? "bg-yellow-500" : 
+    calculatedScore >= 40 ? "bg-orange-500" : 
     "bg-red-500"
   );
 
@@ -124,12 +147,12 @@ const Results = () => {
               <div className="text-center">
                 <h2 className="text-2xl font-bold mb-3">Votre score</h2>
                 <div className="inline-flex items-center justify-center bg-white p-6 rounded-full mb-4 shadow-md">
-                  <span className={`text-4xl font-bold ${scoreColor}`}>{score}%</span>
+                  <span className={`text-4xl font-bold ${scoreColor}`}>{calculatedScore}%</span>
                 </div>
                 <p className={`text-lg font-semibold ${scoreColor}`}>{scoreText}</p>
                 
                 <div className="relative w-full mt-6">
-                  <Progress value={score} className={progressBarClass} />
+                  <Progress value={calculatedScore} className={progressBarClass} />
                 </div>
               </div>
             </div>
