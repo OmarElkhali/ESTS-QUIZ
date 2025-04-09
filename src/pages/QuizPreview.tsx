@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { useQuiz } from '@/hooks/useQuiz';
 import { Navbar } from '@/components/Navbar';
 import { motion } from 'framer-motion';
-import { ArrowRight, Clock, FileText, HelpCircle, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Clock, FileText, HelpCircle, Loader2, AlertCircle, CheckCircle2, BookOpen, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -19,6 +19,10 @@ const QuizPreview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasFallbackQuestions, setHasFallbackQuestions] = useState(false);
+  const [aiGenerationInfo, setAiGenerationInfo] = useState<{
+    status: 'success' | 'partial' | 'fallback';
+    message: string;
+  } | null>(null);
   
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -38,13 +42,45 @@ const QuizPreview = () => {
           return;
         }
         
-        // Vérifier si les questions sont des questions de secours
+        // Analyser les questions pour déterminer le statut de la génération IA
         const hasBackupQuestions = quizData.questions?.some(q => 
           q.text.includes('(générée') || 
           q.text.includes('mode secours') ||
           q.text.includes('générée automatiquement') ||
           q.explanation?.includes('secours')
         );
+        
+        // Déterminer si toutes les questions sont de secours ou seulement certaines
+        if (hasBackupQuestions) {
+          const backupCount = quizData.questions?.filter(q => 
+            q.text.includes('(générée') || 
+            q.text.includes('mode secours') ||
+            q.text.includes('générée automatiquement') ||
+            q.explanation?.includes('secours')
+          ).length;
+          
+          const totalQuestions = quizData.questions?.length || 0;
+          
+          if (backupCount === totalQuestions) {
+            // Toutes les questions sont des questions de secours
+            setAiGenerationInfo({
+              status: 'fallback',
+              message: "L'IA n'a pas pu générer de questions à partir de votre document. Des questions génériques ont été utilisées."
+            });
+          } else {
+            // Seulement certaines questions sont de secours
+            setAiGenerationInfo({
+              status: 'partial',
+              message: `${backupCount} sur ${totalQuestions} questions ont été générées en mode secours.`
+            });
+          }
+        } else {
+          // Toutes les questions sont générées par l'IA
+          setAiGenerationInfo({
+            status: 'success',
+            message: "Toutes les questions ont été générées avec succès par l'IA à partir de votre document."
+          });
+        }
         
         setHasFallbackQuestions(hasBackupQuestions);
         setQuiz(quizData);
@@ -120,11 +156,29 @@ const QuizPreview = () => {
             </Alert>
           )}
           
+          {aiGenerationInfo && (
+            <Alert 
+              variant={aiGenerationInfo.status === 'success' ? 'success' : 
+                      aiGenerationInfo.status === 'partial' ? 'info' : 'warning'} 
+              className="mb-6"
+            >
+              <Brain className="h-4 w-4" />
+              <AlertTitle>
+                {aiGenerationInfo.status === 'success' ? 'Génération IA réussie' : 
+                 aiGenerationInfo.status === 'partial' ? 'Génération IA partielle' : 
+                 'Génération IA en mode secours'}
+              </AlertTitle>
+              <AlertDescription>
+                {aiGenerationInfo.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {hasFallbackQuestions && (
-            <Alert variant="warning" className="mb-6 bg-amber-50 border-amber-200">
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <AlertTitle className="text-amber-800">Mode de secours activé</AlertTitle>
-              <AlertDescription className="text-amber-700">
+            <Alert variant="warning" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Mode de secours activé</AlertTitle>
+              <AlertDescription>
                 Nous avons utilisé des questions de secours car l'IA n'a pas pu générer des questions personnalisées. 
                 Vous pouvez toujours utiliser ce quiz ou retourner pour en créer un nouveau.
               </AlertDescription>
@@ -182,6 +236,20 @@ const QuizPreview = () => {
                   </p>
                 </div>
               )}
+              
+              <div className="mt-8 border border-blue-200 bg-blue-50 rounded-lg p-4">
+                <h3 className="text-blue-800 font-medium mb-2 flex items-center">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Difficulté du quiz
+                </h3>
+                <p className="text-blue-700">
+                  Niveau: <span className="font-medium">
+                    {quiz.difficulty === 'easy' ? 'Facile' : 
+                     quiz.difficulty === 'medium' ? 'Intermédiaire' : 
+                     quiz.difficulty === 'hard' ? 'Difficile' : 'Standard'}
+                  </span>
+                </p>
+              </div>
             </CardContent>
             
             <CardFooter className="p-6 bg-muted/20 flex flex-col sm:flex-row gap-4 justify-center">

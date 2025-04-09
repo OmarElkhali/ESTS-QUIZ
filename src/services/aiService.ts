@@ -9,13 +9,14 @@ const FLASK_API_URL = 'http://localhost:5000/api';
 // Exporter la fonction pour pouvoir l'utiliser directement
 export const getFirebaseBackupQuestions = async (): Promise<Question[]> => {
   try {
+    console.log('Tentative de récupération des questions de secours depuis Firebase...');
     // Essayer de récupérer les questions depuis Firestore
     const questionsCollection = collection(db, 'backup-questions');
     const snapshot = await getDocs(questionsCollection);
     
     if (!snapshot.empty) {
       const questions = snapshot.docs.map(doc => doc.data() as Question);
-      console.log('Questions de secours récupérées depuis Firebase:', questions.length);
+      console.log(`${questions.length} questions de secours récupérées depuis Firebase`);
       return questions;
     }
     
@@ -164,16 +165,16 @@ export const generateQuestionsWithAI = async (
   progressCallback?: (progress: number) => void
 ): Promise<Question[]> => {
   try {
-    console.log(`Génération de ${numQuestions} questions avec ${modelType} via Flask API...`);
-    console.log(`Texte: ${text.substring(0, 100)}... (${text.length} caractères)`);
+    console.log(`Génération de ${numQuestions} questions avec ${modelType} - Début du processus`);
+    console.log(`Longueur du texte: ${text.length} caractères, Difficulté: ${difficulty}`);
     console.log(`Infos supplémentaires: ${additionalInfo || 'aucune'}`);
     progressCallback?.(0.1);
     
-    // Vérification de l'état du serveur Flask
+    // Vérification de l'état du serveur Flask avec timeout plus court
     try {
       progressCallback?.(0.2);
       console.log('Vérification de l\'état du serveur Flask...');
-      const healthCheck = await axios.get(`${FLASK_API_URL}/health`, { timeout: 5000 });
+      const healthCheck = await axios.get(`${FLASK_API_URL}/health`, { timeout: 3000 });
       console.log('Statut du serveur Flask:', healthCheck.data);
     } catch (healthError: any) {
       console.error('Le serveur Flask est inaccessible:', healthError);
@@ -183,26 +184,57 @@ export const generateQuestionsWithAI = async (
         status: healthError.response?.status,
         data: healthError.response?.data
       });
-      console.log('Utilisation automatique du mode de secours Firebase sans notification...');
+      console.log('Basculement automatique vers le service Supabase Edge Function...');
       
-      // Récupération silencieuse des questions de secours depuis Firebase
-      const firebaseQuestions = await getFirebaseBackupQuestions();
-      console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase`);
-      
-      // Limiter au nombre de questions demandé et ajuster la difficulté
-      const adjustedQuestions = firebaseQuestions
-        .slice(0, numQuestions)
-        .map(q => ({...q, difficulty}));
-      
-      return adjustedQuestions;
+      try {
+        console.log(`Tentative avec l'API Supabase Edge Function (${modelType})...`);
+        progressCallback?.(0.3);
+        
+        // Déterminer l'URL de l'endpoint Supabase en fonction du modèle
+        const edgeFunctionUrl = modelType === 'gemini' 
+          ? 'https://lovable.functions.supabase.co/generate-questions'
+          : 'https://lovable.functions.supabase.co/generate-with-qwen';
+        
+        const response = await axios.post(edgeFunctionUrl, {
+          text: text.slice(0, 15000), // Limiter la taille du texte
+          numQuestions,
+          difficulty,
+          additionalInfo
+        }, { 
+          timeout: 120000, // 2 minutes
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        progressCallback?.(0.8);
+        
+        if (response.data && response.data.questions) {
+          const questions = response.data.questions;
+          console.log(`${questions.length} questions générées avec succès via Supabase Edge Function (${modelType})`);
+          return questions;
+        } else {
+          throw new Error('Format de réponse incorrect depuis Supabase Edge Function');
+        }
+      } catch (supabaseError: any) {
+        console.error(`Échec de la génération avec Supabase Edge Function (${modelType}):`, supabaseError);
+        
+        // Récupération des questions de secours depuis Firebase
+        const firebaseQuestions = await getFirebaseBackupQuestions();
+        console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase`);
+        
+        // Limiter au nombre de questions demandé et ajuster la difficulté
+        const adjustedQuestions = firebaseQuestions
+          .slice(0, numQuestions)
+          .map(q => ({...q, difficulty}));
+        
+        return adjustedQuestions;
+      }
     }
     
-    // Création de la requête vers l'API Flask
+    // Si le serveur Flask est disponible, procéder avec l'API Flask
     progressCallback?.(0.3);
     console.log('Envoi des données au serveur Flask:', {
       numQuestions,
       difficulty,
-      additionalInfo,
       modelType,
       textLength: text.length
     });
@@ -215,9 +247,7 @@ export const generateQuestionsWithAI = async (
         additionalInfo,
         modelType
       }, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         timeout: 180000 // 3 minutes
       });
       
@@ -245,10 +275,37 @@ export const generateQuestionsWithAI = async (
         data: apiError.response?.data
       });
       
-      // En cas d'erreur d'API Flask, basculer silencieusement vers le mode de secours Firebase
-      console.log('Basculement silencieux vers le mode de secours Firebase...');
+      // Tentative avec l'autre modèle d'IA via Supabase Edge Function
+      try {
+        const alternativeModel = modelType === 'qwen' ? 'gemini' : 'qwen';
+        console.log(`Tentative avec le modèle alternatif ${alternativeModel} via Supabase...`);
+        
+        const edgeFunctionUrl = alternativeModel === 'gemini' 
+          ? 'https://lovable.functions.supabase.co/generate-questions'
+          : 'https://lovable.functions.supabase.co/generate-with-qwen';
+        
+        const response = await axios.post(edgeFunctionUrl, {
+          text: text.slice(0, 15000), // Limiter la taille du texte
+          numQuestions,
+          difficulty,
+          additionalInfo
+        }, { 
+          timeout: 120000,
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.data && response.data.questions) {
+          const questions = response.data.questions;
+          console.log(`${questions.length} questions générées avec succès via le modèle alternatif ${alternativeModel}`);
+          return questions;
+        }
+      } catch (alternativeError) {
+        console.error(`Échec avec le modèle alternatif ${modelType === 'qwen' ? 'gemini' : 'qwen'}:`, alternativeError);
+      }
+      
+      // Si toutes les tentatives échouent, utiliser les questions de secours
+      console.log('Toutes les tentatives de génération AI ont échoué, utilisation des questions de secours');
       const firebaseQuestions = await getFirebaseBackupQuestions();
-      console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase suite à une erreur API`);
       
       // Limiter au nombre de questions demandé et ajuster la difficulté
       const adjustedQuestions = firebaseQuestions
@@ -264,10 +321,10 @@ export const generateQuestionsWithAI = async (
       stack: error.stack
     });
     
-    // En cas d'erreur générale, basculer silencieusement vers le mode de secours Firebase
-    console.log('Basculement silencieux vers le mode de secours Firebase suite à une erreur générale...');
+    // En cas d'erreur générale, basculer vers le mode de secours Firebase
+    console.log('Basculement vers le mode de secours Firebase suite à une erreur générale...');
     const firebaseQuestions = await getFirebaseBackupQuestions();
-    console.log(`${firebaseQuestions.length} questions de secours récupérées depuis Firebase suite à une erreur générale`);
+    console.log(`${firebaseQuestions.length} questions de secours récupérées suite à une erreur générale`);
     
     // Limiter au nombre de questions demandé et ajuster la difficulté
     const adjustedQuestions = firebaseQuestions
